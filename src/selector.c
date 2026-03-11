@@ -386,25 +386,14 @@ static void on_browse_clicked(GtkWidget *widget, gpointer user_data)
 
 	if (data->selected_fi->filename) {
 		GFile *file = g_file_new_for_path(data->selected_fi->filename);
-		if (mode == OPEN) {
-			/* For open, set the initial folder to the file's parent */
-			GFile *folder = g_file_get_parent(file);
-			if (folder) {
-				gtk_file_dialog_set_initial_folder(fd, folder);
-				g_object_unref(folder);
-			}
-			gtk_file_dialog_set_initial_name(fd,
-				g_file_get_basename(file));
-		} else {
-			/* For save, set initial file directly */
-			GFile *folder = g_file_get_parent(file);
-			if (folder) {
-				gtk_file_dialog_set_initial_folder(fd, folder);
-				g_object_unref(folder);
-			}
-			gtk_file_dialog_set_initial_name(fd,
-				g_file_get_basename(file));
+		GFile *folder = g_file_get_parent(file);
+		if (folder) {
+			gtk_file_dialog_set_initial_folder(fd, folder);
+			g_object_unref(folder);
 		}
+		gchar *basename = g_file_get_basename(file);
+		gtk_file_dialog_set_initial_name(fd, basename);
+		g_free(basename);
 		g_object_unref(file);
 	}
 
