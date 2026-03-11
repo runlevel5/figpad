@@ -270,6 +270,9 @@ gchar * file_stats(GtkWidget *view, FileInfo *fi)
 	text_stats( str, &wordCount, &lineCount );
 	text_stats( text, &totalWords, &totalLines );
 
+	g_free(str);
+	g_free(text);
+
 	g_sprintf(
 		toret,
 		_("Totals\nChars: %7d Words: %6d Lines: %5d\n\n"
