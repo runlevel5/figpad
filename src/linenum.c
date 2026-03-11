@@ -298,12 +298,23 @@ static gulong vadj_signal_id = 0;
 static GtkAdjustment *connected_vadj = NULL;
 
 static void
+on_vadj_weak_notify(gpointer data, GObject *where_the_object_was)
+{
+	(void)data;
+	(void)where_the_object_was;
+	connected_vadj = NULL;
+	vadj_signal_id = 0;
+}
+
+static void
 connect_vadjustment(GtkTextView *text_view)
 {
 	GtkAdjustment *vadj;
 
 	/* Disconnect from old adjustment if any */
 	if (connected_vadj != NULL && vadj_signal_id != 0) {
+		g_object_weak_unref(G_OBJECT(connected_vadj),
+			on_vadj_weak_notify, NULL);
 		g_signal_handler_disconnect(connected_vadj, vadj_signal_id);
 		vadj_signal_id = 0;
 		connected_vadj = NULL;
@@ -314,6 +325,8 @@ connect_vadjustment(GtkTextView *text_view)
 		vadj_signal_id = g_signal_connect(vadj, "value-changed",
 			G_CALLBACK(on_vadjustment_changed), NULL);
 		connected_vadj = vadj;
+		g_object_weak_ref(G_OBJECT(connected_vadj),
+			on_vadj_weak_notify, NULL);
 	}
 }
 
