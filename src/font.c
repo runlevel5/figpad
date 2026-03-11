@@ -19,13 +19,60 @@
 
 #include "figpad.h"
 
+/* Manually tracked font description — GTK4 removed
+ * gtk_widget_override_font() and gtk_style_context_get_font(). */
+static PangoFontDescription *current_font_desc = NULL;
+static GtkCssProvider *font_css_provider = NULL;
+
+static void apply_font_css(GtkWidget *widget)
+{
+	gchar *css_str;
+	gchar *font_str;
+
+	if (!current_font_desc)
+		return;
+
+	if (!font_css_provider) {
+		font_css_provider = gtk_css_provider_new();
+		gtk_style_context_add_provider(
+			gtk_widget_get_style_context(widget),
+			GTK_STYLE_PROVIDER(font_css_provider),
+			GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+	}
+
+	font_str = pango_font_description_to_string(current_font_desc);
+	css_str = g_strdup_printf("textview { font: %s; }", font_str);
+	gtk_css_provider_load_from_string(font_css_provider, css_str);
+	g_free(css_str);
+	g_free(font_str);
+}
+
 void set_text_font_by_name(GtkWidget *widget, gchar *fontname)
 {
-	PangoFontDescription *font_desc;
+	if (current_font_desc)
+		pango_font_description_free(current_font_desc);
+	current_font_desc = pango_font_description_from_string(fontname);
+	apply_font_css(widget);
+}
 
-	font_desc = pango_font_description_from_string(fontname);
-	gtk_widget_override_font(widget, font_desc);
-	pango_font_description_free(font_desc);
+gchar *get_current_font_name(void)
+{
+	if (current_font_desc)
+		return pango_font_description_to_string(current_font_desc);
+	return g_strdup("Monospace 12");
+}
+
+typedef struct {
+	GMainLoop *loop;
+	gint response;
+} FontDialogData;
+
+static void on_font_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data)
+{
+	(void)dialog;
+	FontDialogData *data = user_data;
+	data->response = response_id;
+	g_main_loop_quit(data->loop);
 }
 
 static gchar *get_font_name_by_selector(GtkWidget *window, gchar *current_fontname)
@@ -33,15 +80,28 @@ static gchar *get_font_name_by_selector(GtkWidget *window, gchar *current_fontna
 	GtkWidget *dialog;
 	gchar *fontname;
 
-	dialog = gtk_font_chooser_dialog_new(_("Font"),NULL);
+	dialog = gtk_font_chooser_dialog_new(_("Font"), NULL);
 	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
 	gtk_font_chooser_set_font(GTK_FONT_CHOOSER(dialog), current_fontname);
-	if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK)
+
+	/* TODO: convert to async dialog API in a future cleanup pass */
+	FontDialogData data;
+	data.response = GTK_RESPONSE_NONE;
+	data.loop = g_main_loop_new(NULL, FALSE);
+
+	g_signal_connect(dialog, "response",
+		G_CALLBACK(on_font_dialog_response), &data);
+
+	gtk_window_present(GTK_WINDOW(dialog));
+	g_main_loop_run(data.loop);
+	g_main_loop_unref(data.loop);
+
+	if (data.response == GTK_RESPONSE_OK)
 		fontname = gtk_font_chooser_get_font(GTK_FONT_CHOOSER(dialog));
 	else
 		fontname = NULL;
-	gtk_widget_destroy(dialog);
 
+	gtk_window_destroy(GTK_WINDOW(dialog));
 	return fontname;
 }
 
@@ -49,9 +109,9 @@ void change_text_font_by_selector(GtkWidget *widget)
 {
 	gchar *current_fontname, *fontname;
 
-	current_fontname = pango_font_description_to_string(gtk_style_context_get_font(gtk_widget_get_style_context(widget), 0));
+	current_fontname = get_current_font_name();
 	fontname = get_font_name_by_selector(
-		gtk_widget_get_toplevel(widget), current_fontname);
+		GTK_WIDGET(gtk_widget_get_root(widget)), current_fontname);
 	if (fontname) {
 		set_text_font_by_name(widget, fontname);
 		indent_refresh_tab_width(widget);

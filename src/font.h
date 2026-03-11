@@ -21,6 +21,7 @@
 #define _FONT_H
 
 void set_text_font_by_name(GtkWidget *widget, gchar *fontname);
+gchar *get_current_font_name(void);
 void change_text_font_by_selector(GtkWidget *widget);
 
 #endif /* _FONT_H */
