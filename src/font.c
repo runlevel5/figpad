@@ -62,39 +62,41 @@ gchar *get_current_font_name(void)
 	return g_strdup("Monospace 12");
 }
 
-static gchar *get_font_name_by_selector(GtkWidget *window, gchar *current_fontname)
+static void on_font_chosen(GObject *source, GAsyncResult *result, gpointer user_data)
 {
-	GtkWidget *dialog;
-	gchar *fontname;
+	GtkFontDialog *fd = GTK_FONT_DIALOG(source);
+	GtkWidget *widget = user_data;
+	GError *error = NULL;
+	PangoFontDescription *desc;
 
-	dialog = gtk_font_chooser_dialog_new(_("Font"), NULL);
-	gtk_window_set_transient_for(GTK_WINDOW(dialog), GTK_WINDOW(window));
-	gtk_font_chooser_set_font(GTK_FONT_CHOOSER(dialog), current_fontname);
-
-	/* TODO: convert to async dialog API in a future cleanup pass */
-	gint response = run_dialog_sync(GTK_DIALOG(dialog));
-
-	if (response == GTK_RESPONSE_OK)
-		fontname = gtk_font_chooser_get_font(GTK_FONT_CHOOSER(dialog));
-	else
-		fontname = NULL;
-
-	gtk_window_destroy(GTK_WINDOW(dialog));
-	return fontname;
+	desc = gtk_font_dialog_choose_font_finish(fd, result, &error);
+	if (desc) {
+		gchar *fontname = pango_font_description_to_string(desc);
+		set_text_font_by_name(widget, fontname);
+		indent_refresh_tab_width(widget);
+		g_free(fontname);
+		pango_font_description_free(desc);
+	}
+	if (error)
+		g_error_free(error);
 }
 
 void change_text_font_by_selector(GtkWidget *widget)
 {
-	gchar *current_fontname, *fontname;
+	GtkFontDialog *fd;
+	PangoFontDescription *initial_desc;
 
-	current_fontname = get_current_font_name();
-	fontname = get_font_name_by_selector(
-		GTK_WIDGET(gtk_widget_get_root(widget)), current_fontname);
-	if (fontname) {
-		set_text_font_by_name(widget, fontname);
-		indent_refresh_tab_width(widget);
-	}
+	fd = gtk_font_dialog_new();
+	gtk_font_dialog_set_title(fd, _("Font"));
 
-	g_free(fontname);
-	g_free(current_fontname);
+	initial_desc = current_font_desc
+		? pango_font_description_copy(current_font_desc)
+		: pango_font_description_from_string("Monospace 12");
+
+	gtk_font_dialog_choose_font(fd,
+		GTK_WINDOW(gtk_widget_get_root(widget)),
+		initial_desc, NULL, on_font_chosen, widget);
+
+	pango_font_description_free(initial_desc);
+	g_object_unref(fd);
 }
