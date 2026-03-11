@@ -17,11 +17,10 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <gtk/gtk.h>
-#include "gtkprint.h"
+#include "figpad.h"
 
 static PangoLayout *layout;
-static const PangoFontDescription *font_desc;
+static PangoFontDescription *font_desc;
 static gint line_count, lines_per_page, text_height;
 static gint n_pages;
 static gdouble page_width, page_height;
@@ -55,7 +54,7 @@ static void cb_begin_print(GtkPrintOperation *op,
 
 	page_width = gtk_print_context_get_width(ctx);
 	page_height = gtk_print_context_get_height(ctx);
-	font_desc = gtk_style_context_get_font(gtk_widget_get_style_context(data), GTK_STATE_FLAG_NORMAL);
+	font_desc = pango_font_description_from_string(get_current_font_name());
 	layout = gtk_print_context_create_pango_layout(ctx);
 	pango_layout_set_width(layout, page_width * PANGO_SCALE);
 	pango_layout_set_font_description(layout, font_desc);
@@ -101,7 +100,6 @@ static void cb_draw_page(GtkPrintOperation *op,
 	layout_rh = gtk_print_context_create_pango_layout(ctx);
 	pango_layout_set_font_description(layout_rh, font_desc);
 	pango_layout_set_text(layout_rh, page_text, -1);
-//	pango_layout_set_alignment(layout_rh, PANGO_ALIGN_RIGHT);
 	pango_layout_get_size(layout_rh, &layout_width, NULL);
 	cairo_move_to(cr,
 		page_width - layout_width / PANGO_SCALE, - 72 / 25.4 * 10);
@@ -125,6 +123,10 @@ static void cb_end_print(GtkPrintOperation *op,
 		GtkPrintContext *ctx, gpointer data)
 {
 	g_object_unref(layout);
+	if (font_desc) {
+		pango_font_description_free(font_desc);
+		font_desc = NULL;
+	}
 }
 
 static GtkPrintSettings *settings = NULL;
@@ -160,17 +162,18 @@ static void create_error_dialog(GtkTextView *text_view, gchar *message)
 	GtkWidget *dialog;
 
 	dialog = gtk_message_dialog_new(
-		GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(text_view))),
+		GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(text_view))),
 		GTK_DIALOG_DESTROY_WITH_PARENT,
 		GTK_MESSAGE_ERROR,
 		GTK_BUTTONS_NONE,
 		"%s", message);
 	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
 	gtk_dialog_add_buttons(GTK_DIALOG(dialog),
-		GTK_STOCK_OK, GTK_RESPONSE_CANCEL, NULL);
+		_("_OK"), GTK_RESPONSE_CANCEL, NULL);
 	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
-	gtk_dialog_run(GTK_DIALOG(dialog));
-	gtk_widget_destroy(dialog);
+	/* TODO: convert to async dialog API in a future cleanup pass */
+	run_dialog_sync(GTK_DIALOG(dialog));
+	gtk_window_destroy(GTK_WINDOW(dialog));
 }
 
 void create_gtkprint_session(GtkTextView *text_view, const gchar *title)
@@ -183,7 +186,7 @@ void create_gtkprint_session(GtkTextView *text_view, const gchar *title)
 	op = create_print_operation(text_view);
 
 	res = gtk_print_operation_run(op, GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG,
-		GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(text_view))), &err);
+		GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(text_view))), &err);
 	switch (res) {
 	case GTK_PRINT_OPERATION_RESULT_ERROR:
 		create_error_dialog(text_view, err->message);
@@ -209,7 +212,7 @@ void create_gtkprint_preview_session(GtkTextView *text_view, const gchar *title)
 	op = create_print_operation(text_view);
 
 	res = gtk_print_operation_run(op, GTK_PRINT_OPERATION_ACTION_PREVIEW,
-		GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(text_view))), &err);
+		GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(text_view))), &err);
 	if (res == GTK_PRINT_OPERATION_RESULT_ERROR) {
 		create_error_dialog(text_view, err->message);
 		g_error_free(err);
