@@ -294,10 +294,39 @@ void show_line_numbers(GtkWidget *text_view, gboolean visible)
 	}
 }
 
-void linenum_init(GtkWidget *text_view)
+static gulong vadj_signal_id = 0;
+static GtkAdjustment *connected_vadj = NULL;
+
+static void
+connect_vadjustment(GtkTextView *text_view)
 {
 	GtkAdjustment *vadj;
 
+	/* Disconnect from old adjustment if any */
+	if (connected_vadj != NULL && vadj_signal_id != 0) {
+		g_signal_handler_disconnect(connected_vadj, vadj_signal_id);
+		vadj_signal_id = 0;
+		connected_vadj = NULL;
+	}
+
+	vadj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(text_view));
+	if (vadj != NULL) {
+		vadj_signal_id = g_signal_connect(vadj, "value-changed",
+			G_CALLBACK(on_vadjustment_changed), NULL);
+		connected_vadj = vadj;
+	}
+}
+
+static void
+on_notify_vadjustment(GObject *object, GParamSpec *pspec, gpointer data)
+{
+	(void)pspec;
+	(void)data;
+	connect_vadjustment(GTK_TEXT_VIEW(object));
+}
+
+void linenum_init(GtkWidget *text_view)
+{
 	gutter_text_view = GTK_TEXT_VIEW(text_view);
 	min_number_window_width = calculate_min_number_window_width(text_view);
 
@@ -323,12 +352,13 @@ void linenum_init(GtkWidget *text_view)
 		G_CALLBACK(on_buffer_changed),
 		NULL);
 
-	/* Redraw line numbers when the view scrolls */
-	vadj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(text_view));
-	if (vadj != NULL) {
-		g_signal_connect(vadj, "value-changed",
-			G_CALLBACK(on_vadjustment_changed), NULL);
-	}
+	/* Redraw line numbers when the view scrolls.
+	 * The vadjustment may be replaced when the text view is later
+	 * added to a GtkScrolledWindow, so we listen for changes to it
+	 * and reconnect our signal handler accordingly. */
+	connect_vadjustment(GTK_TEXT_VIEW(text_view));
+	g_signal_connect(text_view, "notify::vadjustment",
+		G_CALLBACK(on_notify_vadjustment), NULL);
 
 	show_line_numbers(text_view, FALSE);
 }
