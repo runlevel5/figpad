@@ -295,7 +295,7 @@ gint main(gint argc, gchar **argv)
 	parse_args(argc, argv, pub->fi);
 
 	GtkApplication *app = gtk_application_new(
-		"id.tle.figpad", G_APPLICATION_DEFAULT_FLAGS);
+		"id.tle.figpad", G_APPLICATION_NON_UNIQUE);
 	g_set_application_name(PACKAGE_NAME);
 
 	g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
