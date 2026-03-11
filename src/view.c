@@ -260,10 +260,11 @@ static void cb_modified_changed(GtkTextBuffer *buffer, GtkWidget *view)
 	g_free(filename);
 	gtk_window_set_title(GTK_WINDOW(gtk_widget_get_root(view)), title);
 	g_free(title);
-	if (pub->fi->filename)
-		exist_flag = g_file_test(
-			g_filename_to_utf8(pub->fi->filename, -1, NULL, NULL, NULL),
-			G_FILE_TEST_EXISTS);
+	if (pub->fi->filename) {
+		gchar *utf8 = g_filename_to_utf8(pub->fi->filename, -1, NULL, NULL, NULL);
+		exist_flag = g_file_test(utf8, G_FILE_TEST_EXISTS);
+		g_free(utf8);
+	}
 	menu_sensitivity_from_modified_flag(modified_flag || !exist_flag);
 }
 

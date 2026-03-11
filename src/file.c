@@ -40,11 +40,10 @@ gchar *get_file_basename(gchar *filename, gboolean bracket)
 	gboolean exist_flag;
 
 	if (filename) {
-		tmp = g_path_get_basename(
-			g_filename_to_utf8(filename, -1, NULL, NULL, NULL));
-		exist_flag = g_file_test(
-			g_filename_to_utf8(filename, -1, NULL, NULL, NULL),
-			G_FILE_TEST_EXISTS);
+		gchar *utf8 = g_filename_to_utf8(filename, -1, NULL, NULL, NULL);
+		tmp = g_path_get_basename(utf8);
+		exist_flag = g_file_test(utf8, G_FILE_TEST_EXISTS);
+		g_free(utf8);
 	} else {
 		tmp = g_strdup(_("Untitled"));
 		exist_flag = FALSE;
