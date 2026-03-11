@@ -123,31 +123,19 @@ gint on_file_save_as(void)
 #if ENABLE_STATISTICS
 void on_file_stats(void)
 {
-	gchar * stats = file_stats( pub->mw->view, pub->fi );
+	gchar *stats = file_stats(pub->mw->view, pub->fi);
+	GtkAlertDialog *alert;
 
-	GtkWidget *msg = gtk_message_dialog_new_with_markup(
-		GTK_WINDOW(pub->mw->window),
-		GTK_DIALOG_MODAL,
-		GTK_MESSAGE_INFO,
-		GTK_BUTTONS_OK,
-		_("<b>Statistics</b>")
-	);
+	alert = gtk_alert_dialog_new("%s", _("Statistics"));
+	gtk_alert_dialog_set_detail(alert, stats);
+	gtk_alert_dialog_set_buttons(alert, (const char *[]){ _("_OK"), NULL });
+	gtk_alert_dialog_set_default_button(alert, 0);
+	gtk_alert_dialog_set_cancel_button(alert, 0);
 
-	gtk_message_dialog_format_secondary_markup(
-		GTK_MESSAGE_DIALOG(msg),
-		"<i>%s</i>",
-		stats
-	);
+	gtk_alert_dialog_show(alert, GTK_WINDOW(pub->mw->window));
+	g_object_unref(alert);
 
-	gtk_window_set_title(GTK_WINDOW(msg), pub->fi->filename);
-	gtk_window_set_transient_for(GTK_WINDOW(msg),
-		GTK_WINDOW(pub->mw->window));
-
-	/* TODO: convert to async dialog API in a future cleanup pass */
-	run_dialog_sync(GTK_DIALOG(msg));
-	gtk_window_destroy(GTK_WINDOW(msg));
-
-	g_free( stats );
+	g_free(stats);
 }
 #endif
 
