@@ -24,5 +24,6 @@ gchar *gedit_utils_get_stdin(void);
 GtkWidget *create_button_with_stock_image(const gchar *text, const gchar *stock_id);
 void update_combo_data(GtkWidget *entry, GList **history);
 GtkWidget *create_combo_with_history(GList **history);
+GtkWidget *get_combo_entry(GtkWidget *combo_box);
 
 #endif /* _UTILS_H */

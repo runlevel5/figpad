@@ -116,20 +116,60 @@ void update_combo_data (GtkWidget *entry, GList **history)
 	*history = g_list_prepend (*history, g_strdup (text));
 }
 
+static void on_history_selected(GObject *dropdown, GParamSpec *pspec, gpointer user_data)
+{
+	(void)pspec;
+	GtkDropDown *dd = GTK_DROP_DOWN(dropdown);
+	GtkWidget *entry = GTK_WIDGET(user_data);
+	guint pos = gtk_drop_down_get_selected(dd);
+
+	if (pos == GTK_INVALID_LIST_POSITION)
+		return;
+
+	GtkStringObject *obj = GTK_STRING_OBJECT(
+		g_list_model_get_item(gtk_drop_down_get_model(dd), pos));
+	if (obj) {
+		gtk_editable_set_text(GTK_EDITABLE(entry),
+			gtk_string_object_get_string(obj));
+		g_object_unref(obj);
+	}
+}
+
 GtkWidget *create_combo_with_history (GList **history)
 {
-	GtkWidget *combo;
+	GtkWidget *box;
+	GtkWidget *entry;
+	GtkWidget *dropdown;
+	GtkStringList *slist;
 	GList *node;
 
-	combo = gtk_combo_box_text_new_with_entry ();
-	/* gtk_rc_parse_string() removed in GTK4; appears-as-list styling
-	 * is no longer available via RC strings.  The combo will use its
-	 * default presentation. */
+	box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
 
-	for (node = *history; node != NULL; node = g_list_next (node))
-		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), node->data);
+	entry = gtk_entry_new();
+	gtk_widget_set_hexpand(entry, TRUE);
+	gtk_box_append(GTK_BOX(box), entry);
 
-	return combo;
+	slist = gtk_string_list_new(NULL);
+	for (node = *history; node != NULL; node = g_list_next(node))
+		gtk_string_list_append(slist, (const gchar *)node->data);
+
+	dropdown = gtk_drop_down_new(G_LIST_MODEL(slist), NULL);
+	gtk_drop_down_set_selected(GTK_DROP_DOWN(dropdown),
+		GTK_INVALID_LIST_POSITION);
+	gtk_box_append(GTK_BOX(box), dropdown);
+
+	g_signal_connect(dropdown, "notify::selected",
+		G_CALLBACK(on_history_selected), entry);
+
+	/* Store the entry as widget data so callers can retrieve it */
+	g_object_set_data(G_OBJECT(box), "entry", entry);
+
+	return box;
+}
+
+GtkWidget *get_combo_entry(GtkWidget *combo_box)
+{
+	return GTK_WIDGET(g_object_get_data(G_OBJECT(combo_box), "entry"));
 }
 
 #if 0 /* if we want to cleanup before exit ... */

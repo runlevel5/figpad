@@ -339,7 +339,7 @@ gboolean run_dialog_search(GtkWidget *textview, gint mode)
 	combo_find = create_combo_with_history(&find_history);
 	gtk_widget_set_hexpand(combo_find, TRUE);
 	gtk_grid_attach(GTK_GRID(grid), combo_find, 1, 0, 1, 1);
-	entry_find = gtk_combo_box_get_child(GTK_COMBO_BOX(combo_find));
+	entry_find = get_combo_entry(combo_find);
 #else
 	entry_find = gtk_entry_new();
 	gtk_widget_set_hexpand(entry_find, TRUE);
@@ -355,7 +355,7 @@ gboolean run_dialog_search(GtkWidget *textview, gint mode)
 		combo_replace = create_combo_with_history(&replace_history);
 		gtk_widget_set_hexpand(combo_replace, TRUE);
 		gtk_grid_attach(GTK_GRID(grid), combo_replace, 1, 1, 1, 1);
-		entry_replace = gtk_combo_box_get_child(GTK_COMBO_BOX(combo_replace));
+		entry_replace = get_combo_entry(combo_replace);
 		gtk_label_set_mnemonic_widget(GTK_LABEL(label_replace), entry_replace);
 		gtk_editable_set_text(GTK_EDITABLE(entry_replace), "");
 #else
