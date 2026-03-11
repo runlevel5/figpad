@@ -466,6 +466,19 @@ gint run_dialog_search(GtkWidget *textview, gint mode)
 	return res;
 }
 
+typedef struct {
+	GMainLoop *loop;
+	gboolean accepted;
+} JumpToData;
+
+static void on_jump_to_accept(GtkWidget *widget, gpointer user_data)
+{
+	(void)widget;
+	JumpToData *data = user_data;
+	data->accepted = TRUE;
+	g_main_loop_quit(data->loop);
+}
+
 void run_dialog_jump_to(GtkWidget *textview)
 {
 	GtkWidget *dialog;
@@ -473,9 +486,13 @@ void run_dialog_jump_to(GtkWidget *textview)
 	GtkWidget *grid;
 	GtkWidget *label;
 	GtkWidget *spinner;
+	GtkWidget *content_box;
+	GtkWidget *button_box;
+	GtkWidget *cancel_button;
 	GtkAdjustment *spinner_adj;
 	GtkTextIter iter;
 	gint num, max_num;
+	JumpToData data;
 
 	GtkTextBuffer *textbuffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
 
@@ -485,42 +502,67 @@ void run_dialog_jump_to(GtkWidget *textview)
 	gtk_text_buffer_get_end_iter(textbuffer, &iter);
 	max_num = gtk_text_iter_get_line(&iter) + 1;
 
-	dialog = gtk_dialog_new_with_buttons(_("Jump To"),
-		GTK_WINDOW(gtk_widget_get_root(textview)),
-		GTK_DIALOG_DESTROY_WITH_PARENT,
-		_("_Cancel"), GTK_RESPONSE_CANCEL,
-		NULL);
-	gtk_widget_set_margin_start(dialog, 4);
-	gtk_widget_set_margin_end(dialog, 4);
-	gtk_widget_set_margin_top(dialog, 4);
-	gtk_widget_set_margin_bottom(dialog, 4);
-	button = create_button_with_stock_image(_("_Jump"), "go-jump");
-	gtk_dialog_add_action_widget(GTK_DIALOG(dialog), button, GTK_RESPONSE_OK);
+	/* Plain GtkWindow instead of deprecated GtkDialog */
+	dialog = gtk_window_new();
+	gtk_window_set_title(GTK_WINDOW(dialog), _("Jump To"));
+	gtk_window_set_transient_for(GTK_WINDOW(dialog),
+		GTK_WINDOW(gtk_widget_get_root(textview)));
+	gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
+	gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
+
+	content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+	gtk_widget_set_margin_start(content_box, 12);
+	gtk_widget_set_margin_end(content_box, 12);
+	gtk_widget_set_margin_top(content_box, 12);
+	gtk_widget_set_margin_bottom(content_box, 12);
+	gtk_window_set_child(GTK_WINDOW(dialog), content_box);
+
 	grid = gtk_grid_new();
-	 gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
-	 gtk_widget_set_margin_start(grid, 8);
-	 gtk_widget_set_margin_end(grid, 8);
-	 gtk_widget_set_margin_top(grid, 8);
-	 gtk_widget_set_margin_bottom(grid, 8);
-	 gtk_box_append(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid);
+	gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+	gtk_box_append(GTK_BOX(content_box), grid);
+
 	label = gtk_label_new_with_mnemonic(_("_Line number:"));
 	spinner_adj = gtk_adjustment_new(num, 1, max_num, 1, 1, 0);
 	spinner = gtk_spin_button_new(spinner_adj, 1, 0);
-	 gtk_editable_set_width_chars(GTK_EDITABLE(spinner), 8);
-	 gtk_label_set_mnemonic_widget(GTK_LABEL(label), spinner);
-	 gtk_entry_set_activates_default(GTK_ENTRY(spinner), TRUE);
+	gtk_editable_set_width_chars(GTK_EDITABLE(spinner), 8);
+	gtk_label_set_mnemonic_widget(GTK_LABEL(label), spinner);
 	gtk_grid_attach(GTK_GRID(grid), label, 0, 0, 1, 1);
 	gtk_grid_attach(GTK_GRID(grid), spinner, 1, 0, 1, 1);
 
-	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
-	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
+	/* Action buttons */
+	button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+	gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+	gtk_box_append(GTK_BOX(content_box), button_box);
 
-	/* TODO: convert to async dialog API in a future cleanup pass */
-	if (run_dialog_sync(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+	cancel_button = gtk_button_new_with_mnemonic(_("_Cancel"));
+	gtk_box_append(GTK_BOX(button_box), cancel_button);
+
+	button = create_button_with_stock_image(_("_Jump"), "go-jump");
+	gtk_widget_add_css_class(button, "suggested-action");
+	gtk_box_append(GTK_BOX(button_box), button);
+
+	/* Sync-loop plumbing — will be removed in full async conversion */
+	data.loop = g_main_loop_new(NULL, FALSE);
+	data.accepted = FALSE;
+
+	g_signal_connect_swapped(cancel_button, "clicked",
+		G_CALLBACK(g_main_loop_quit), data.loop);
+	g_signal_connect_swapped(dialog, "close-request",
+		G_CALLBACK(g_main_loop_quit), data.loop);
+	g_signal_connect(button, "clicked",
+		G_CALLBACK(on_jump_to_accept), &data);
+	g_signal_connect(spinner, "activate",
+		G_CALLBACK(on_jump_to_accept), &data);
+
+	gtk_window_present(GTK_WINDOW(dialog));
+	g_main_loop_run(data.loop);
+	g_main_loop_unref(data.loop);
+
+	if (data.accepted) {
 		gtk_text_buffer_get_iter_at_line(textbuffer, &iter,
 			gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinner)) - 1);
 		gtk_text_buffer_place_cursor(textbuffer, &iter);
-//		gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(textview), &iter, 0.1, FALSE, 0.5, 0.5);
 		scroll_to_cursor(textbuffer, 0.25);
 	}
 
