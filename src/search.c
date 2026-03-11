@@ -249,19 +249,6 @@ static void toggle_check_all(GtkWidget *widget)
 	replace_all = gtk_check_button_get_active(GTK_CHECK_BUTTON(widget));
 }
 
-typedef struct {
-	GMainLoop *loop;
-	gboolean accepted;
-} SearchData;
-
-static void on_search_accept(GtkWidget *widget, gpointer user_data)
-{
-	(void)widget;
-	SearchData *data = user_data;
-	data->accepted = TRUE;
-	g_main_loop_quit(data->loop);
-}
-
 gboolean run_dialog_search(GtkWidget *textview, gint mode)
 {
 	GtkWidget *dialog;
@@ -278,7 +265,7 @@ gboolean run_dialog_search(GtkWidget *textview, gint mode)
 #endif
 	GtkWidget *entry_find, *entry_replace = NULL;
 	GtkWidget *check_case, *check_all;
-	SearchData data;
+	SyncDialogData sd;
 
 	/* Plain GtkWindow instead of deprecated GtkDialog */
 	dialog = gtk_window_new();
@@ -401,22 +388,14 @@ gboolean run_dialog_search(GtkWidget *textview, gint mode)
 		gtk_entry_set_activates_default(GTK_ENTRY(entry_replace), TRUE);
 
 	/* Sync-loop plumbing */
-	data.loop = g_main_loop_new(NULL, FALSE);
-	data.accepted = FALSE;
-
-	g_signal_connect_swapped(cancel_button, "clicked",
-		G_CALLBACK(g_main_loop_quit), data.loop);
-	g_signal_connect_swapped(dialog, "close-request",
-		G_CALLBACK(g_main_loop_quit), data.loop);
-	g_signal_connect(ok_button, "clicked",
-		G_CALLBACK(on_search_accept), &data);
+	sync_dialog_init(&sd);
+	sync_dialog_connect(&sd, dialog, cancel_button, ok_button);
 
 	gtk_window_set_default_widget(GTK_WINDOW(dialog), ok_button);
 	gtk_window_present(GTK_WINDOW(dialog));
-	g_main_loop_run(data.loop);
-	g_main_loop_unref(data.loop);
+	sync_dialog_run(&sd);
 
-	if (data.accepted) {
+	if (sd.accepted) {
 #if SEARCH_HISTORY
 		update_combo_data(entry_find, &find_history);
 		if (string_find != NULL)
@@ -436,7 +415,7 @@ gboolean run_dialog_search(GtkWidget *textview, gint mode)
 	gtk_window_destroy(GTK_WINDOW(dialog));
 	search_ok_button = NULL;
 
-	if (data.accepted) {
+	if (sd.accepted) {
 		if (strlen(string_find)) {
 			if (mode)
 				document_replace_real(textview);
@@ -445,20 +424,7 @@ gboolean run_dialog_search(GtkWidget *textview, gint mode)
 		}
 	}
 
-	return data.accepted;
-}
-
-typedef struct {
-	GMainLoop *loop;
-	gboolean accepted;
-} JumpToData;
-
-static void on_jump_to_accept(GtkWidget *widget, gpointer user_data)
-{
-	(void)widget;
-	JumpToData *data = user_data;
-	data->accepted = TRUE;
-	g_main_loop_quit(data->loop);
+	return sd.accepted;
 }
 
 void run_dialog_jump_to(GtkWidget *textview)
@@ -474,7 +440,7 @@ void run_dialog_jump_to(GtkWidget *textview)
 	GtkAdjustment *spinner_adj;
 	GtkTextIter iter;
 	gint num, max_num;
-	JumpToData data;
+	SyncDialogData sd;
 
 	GtkTextBuffer *textbuffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
 
@@ -525,23 +491,15 @@ void run_dialog_jump_to(GtkWidget *textview)
 	gtk_box_append(GTK_BOX(button_box), button);
 
 	/* Sync-loop plumbing — will be removed in full async conversion */
-	data.loop = g_main_loop_new(NULL, FALSE);
-	data.accepted = FALSE;
-
-	g_signal_connect_swapped(cancel_button, "clicked",
-		G_CALLBACK(g_main_loop_quit), data.loop);
-	g_signal_connect_swapped(dialog, "close-request",
-		G_CALLBACK(g_main_loop_quit), data.loop);
-	g_signal_connect(button, "clicked",
-		G_CALLBACK(on_jump_to_accept), &data);
+	sync_dialog_init(&sd);
+	sync_dialog_connect(&sd, dialog, cancel_button, button);
 	g_signal_connect(spinner, "activate",
-		G_CALLBACK(on_jump_to_accept), &data);
+		G_CALLBACK(sync_dialog_accept), &sd);
 
 	gtk_window_present(GTK_WINDOW(dialog));
-	g_main_loop_run(data.loop);
-	g_main_loop_unref(data.loop);
+	sync_dialog_run(&sd);
 
-	if (data.accepted) {
+	if (sd.accepted) {
 		gtk_spin_button_update(GTK_SPIN_BUTTON(spinner));
 		gtk_text_buffer_get_iter_at_line(textbuffer, &iter,
 			gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinner)) - 1);

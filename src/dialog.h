@@ -28,4 +28,29 @@ gint run_dialog_question_sync(GtkWidget *window, gchar *message, ...);
 #define QUESTION_RESPONSE_CANCEL 1
 #define QUESTION_RESPONSE_YES    2
 
+/*
+ * Sync-loop helper for modal-style dialogs.
+ *
+ * Usage:
+ *   SyncDialogData sd;
+ *   sync_dialog_init(&sd);
+ *   // connect cancel_button "clicked" and dialog "close-request" to
+ *   // sync_dialog_quit(), and ok_button "clicked" to sync_dialog_accept():
+ *   sync_dialog_connect(&sd, dialog, cancel_button, ok_button);
+ *   // optionally connect additional accept triggers:
+ *   //   g_signal_connect(widget, "activate",
+ *   //       G_CALLBACK(sync_dialog_accept), &sd);
+ *   gboolean accepted = sync_dialog_run(&sd);
+ */
+typedef struct {
+	GMainLoop *loop;
+	gboolean   accepted;
+} SyncDialogData;
+
+void     sync_dialog_init(SyncDialogData *sd);
+void     sync_dialog_accept(GtkWidget *widget, gpointer user_data);
+void     sync_dialog_connect(SyncDialogData *sd,
+             GtkWidget *dialog, GtkWidget *cancel_btn, GtkWidget *ok_btn);
+gboolean sync_dialog_run(SyncDialogData *sd);
+
 #endif /* _DIALOG_H */

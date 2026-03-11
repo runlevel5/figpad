@@ -92,3 +92,37 @@ gint run_dialog_question_sync(GtkWidget *window, gchar *message, ...)
 
 	return data.chosen;
 }
+
+/* ---- Sync-loop helper for modal-style custom dialogs ---- */
+
+void sync_dialog_init(SyncDialogData *sd)
+{
+	sd->loop = g_main_loop_new(NULL, FALSE);
+	sd->accepted = FALSE;
+}
+
+void sync_dialog_accept(GtkWidget *widget, gpointer user_data)
+{
+	(void)widget;
+	SyncDialogData *sd = user_data;
+	sd->accepted = TRUE;
+	g_main_loop_quit(sd->loop);
+}
+
+void sync_dialog_connect(SyncDialogData *sd,
+	GtkWidget *dialog, GtkWidget *cancel_btn, GtkWidget *ok_btn)
+{
+	g_signal_connect_swapped(cancel_btn, "clicked",
+		G_CALLBACK(g_main_loop_quit), sd->loop);
+	g_signal_connect_swapped(dialog, "close-request",
+		G_CALLBACK(g_main_loop_quit), sd->loop);
+	g_signal_connect(ok_btn, "clicked",
+		G_CALLBACK(sync_dialog_accept), sd);
+}
+
+gboolean sync_dialog_run(SyncDialogData *sd)
+{
+	g_main_loop_run(sd->loop);
+	g_main_loop_unref(sd->loop);
+	return sd->accepted;
+}

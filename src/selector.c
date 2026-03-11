@@ -137,19 +137,6 @@ static void update_manual_charset_row(GtkDropDown *dropdown, gchar *manual_chars
 	}
 }
 
-typedef struct {
-	GMainLoop *loop;
-	gboolean accepted;
-} ManualCharsetData;
-
-static void on_manual_charset_accept(GtkWidget *widget, gpointer user_data)
-{
-	(void)widget;
-	ManualCharsetData *data = user_data;
-	data->accepted = TRUE;
-	g_main_loop_quit(data->loop);
-}
-
 static gboolean get_manual_charset(GtkDropDown *dropdown, FileInfo *selected_fi)
 {
 	GtkWidget *dialog;
@@ -162,7 +149,7 @@ static gboolean get_manual_charset(GtkDropDown *dropdown, FileInfo *selected_fi)
 	GtkWidget *entry;
 	GError *err = NULL;
 	gchar *str;
-	ManualCharsetData data;
+	SyncDialogData sd;
 
 	/* Plain GtkWindow instead of deprecated GtkDialog */
 	dialog = gtk_window_new();
@@ -220,23 +207,15 @@ static gboolean get_manual_charset(GtkDropDown *dropdown, FileInfo *selected_fi)
 	gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
 
 	/* Sync-loop plumbing */
-	data.loop = g_main_loop_new(NULL, FALSE);
-	data.accepted = FALSE;
-
-	g_signal_connect_swapped(cancel_button, "clicked",
-		G_CALLBACK(g_main_loop_quit), data.loop);
-	g_signal_connect_swapped(dialog, "close-request",
-		G_CALLBACK(g_main_loop_quit), data.loop);
-	g_signal_connect(ok_button, "clicked",
-		G_CALLBACK(on_manual_charset_accept), &data);
+	sync_dialog_init(&sd);
+	sync_dialog_connect(&sd, dialog, cancel_button, ok_button);
 
 	gtk_window_set_default_widget(GTK_WINDOW(dialog), ok_button);
 	gtk_window_present(GTK_WINDOW(dialog));
-	g_main_loop_run(data.loop);
-	g_main_loop_unref(data.loop);
+	sync_dialog_run(&sd);
 	charset_dialog_ok_button = NULL;
 
-	if (data.accepted) {
+	if (sd.accepted) {
 		g_convert("TEST", -1, "UTF-8", gtk_editable_get_text(GTK_EDITABLE(entry)), NULL, NULL, &err);
 		if (err) {
 			g_error_free(err);
@@ -335,8 +314,7 @@ static GtkWidget *create_charset_menu(FileInfo *selected_fi)
 }
 
 typedef struct {
-	GMainLoop *loop;
-	gboolean accepted;
+	SyncDialogData sd;        /* must be first — allows casting */
 	FileInfo *selected_fi;
 	GtkWidget *dialog;
 } FileSelectorData;
@@ -352,8 +330,8 @@ static void on_file_dialog_open_finish(GObject *source, GAsyncResult *result,
 		g_free(data->selected_fi->filename);
 		data->selected_fi->filename = g_file_get_path(gfile);
 		g_object_unref(gfile);
-		data->accepted = TRUE;
-		g_main_loop_quit(data->loop);
+		data->sd.accepted = TRUE;
+		g_main_loop_quit(data->sd.loop);
 	}
 	/* If cancelled, stay in the options dialog — user can retry or cancel */
 }
@@ -369,8 +347,8 @@ static void on_file_dialog_save_finish(GObject *source, GAsyncResult *result,
 		g_free(data->selected_fi->filename);
 		data->selected_fi->filename = g_file_get_path(gfile);
 		g_object_unref(gfile);
-		data->accepted = TRUE;
-		g_main_loop_quit(data->loop);
+		data->sd.accepted = TRUE;
+		g_main_loop_quit(data->sd.loop);
 	}
 }
 
@@ -484,24 +462,22 @@ FileInfo *get_fileinfo_from_selector(FileInfo *fi, gint requested_mode)
 	gtk_box_append(GTK_BOX(button_box), browse_button);
 
 	/* Sync-loop plumbing */
-	data.loop = g_main_loop_new(NULL, FALSE);
-	data.accepted = FALSE;
+	sync_dialog_init(&data.sd);
 	data.selected_fi = selected_fi;
 	data.dialog = dialog;
 
 	g_signal_connect_swapped(cancel_button, "clicked",
-		G_CALLBACK(g_main_loop_quit), data.loop);
+		G_CALLBACK(g_main_loop_quit), data.sd.loop);
 	g_signal_connect_swapped(dialog, "close-request",
-		G_CALLBACK(g_main_loop_quit), data.loop);
+		G_CALLBACK(g_main_loop_quit), data.sd.loop);
 	g_signal_connect(browse_button, "clicked",
 		G_CALLBACK(on_browse_clicked), &data);
 
 	gtk_window_set_default_widget(GTK_WINDOW(dialog), browse_button);
 	gtk_window_present(GTK_WINDOW(dialog));
-	g_main_loop_run(data.loop);
-	g_main_loop_unref(data.loop);
+	sync_dialog_run(&data.sd);
 
-	if (!data.accepted) {
+	if (!data.sd.accepted) {
 		if (selected_fi->charset)
 			g_free(selected_fi->charset);
 		g_free(selected_fi);
