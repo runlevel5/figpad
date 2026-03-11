@@ -24,9 +24,6 @@
 static gint keyval;
 static gboolean view_scroll_flag = FALSE;
 
-extern GtkClipboard *selection_primary;
-gchar *selection_primary_str = NULL;
-
 gint get_current_keyval(void)
 {
 	return keyval;
@@ -107,12 +104,24 @@ static gboolean check_selection_bound(GtkTextBuffer *buffer)
 	return FALSE;
 }
 
-static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
+/*
+ * GTK4: key-press-event is replaced by GtkEventControllerKey.
+ * The callback signature changes from (GtkWidget*, GdkEventKey*) to
+ * (GtkEventControllerKey*, guint keyval, guint keycode, GdkModifierType state).
+ */
+static gboolean cb_key_pressed(GtkEventControllerKey *controller,
+                               guint kv, guint keycode,
+                               GdkModifierType state,
+                               gpointer user_data)
 {
+	GtkWidget *view = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(controller));
 	GtkTextBuffer *buffer;
 	GtkTextMark *mark;
 	GtkTextIter iter;
 	GdkRectangle prev_rect;
+
+	(void)keycode;
+	(void)user_data;
 
 #if 0
 	if (check_preedit(view))
@@ -125,8 +134,8 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 	gtk_text_view_get_iter_location(GTK_TEXT_VIEW(view), &iter, &prev_rect);
 
 	keyval = 0;
-//g_print("key-press-event: 0x%X\n", event->keyval);
-	switch (event->keyval) {
+//g_print("key-pressed: 0x%X\n", kv);
+	switch (kv) {
 	case GDK_KEY_Up:		// Try [Shift]+[Down]. it works bad.
 	case GDK_KEY_Down:
 		if (gtk_text_view_move_mark_onscreen(GTK_TEXT_VIEW(view), mark)) {
@@ -138,7 +147,7 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 					iter_rect.y - iter_rect.height, NULL);
 				gtk_text_buffer_move_mark(buffer, mark, &iter);
 			}
-			if (!(event->state & GDK_SHIFT_MASK)) {
+			if (!(state & GDK_SHIFT_MASK)) {
 				gtk_text_buffer_get_iter_at_mark(buffer, &iter, mark);
 				gtk_text_buffer_place_cursor(buffer, &iter);
 			}
@@ -155,7 +164,7 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 			gtk_text_view_get_iter_location(GTK_TEXT_VIEW(view), &iter, &iter_rect);
 			if (iter_rect.y < prev_rect.y)
 				pos = 1;
-			if (event->keyval == GDK_KEY_Page_Up)
+			if (kv == GDK_KEY_Page_Up)
 				gtk_text_view_get_line_at_y(GTK_TEXT_VIEW(view), &iter,
 					iter_rect.y - visible_rect.height + iter_rect.height, NULL);
 			else
@@ -164,7 +173,7 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 			gtk_text_buffer_move_mark(buffer, mark, &iter);
 			gtk_text_view_scroll_to_mark(GTK_TEXT_VIEW(view),
 				mark, 0, TRUE, 0, pos);
-			if (!(event->state & GDK_SHIFT_MASK)) {
+			if (!(state & GDK_SHIFT_MASK)) {
 				gtk_text_buffer_get_iter_at_mark(buffer, &iter, mark);
 				gtk_text_buffer_place_cursor(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), &iter);
 			}
@@ -178,12 +187,13 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 		}
 		break;
 	case GDK_KEY_Tab:
-		if (event->state & GDK_CONTROL_MASK) {
+		if (state & GDK_CONTROL_MASK) {
 			indent_toggle_tab_width(view);
 			return TRUE;
 		}
+		/* fall through */
 	case GDK_KEY_ISO_Left_Tab:
-		if (event->state & GDK_SHIFT_MASK)
+		if (state & GDK_SHIFT_MASK)
 			indent_multi_line_unindent(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)));
 		else if (!check_selection_bound(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view))))
 			break;
@@ -191,10 +201,10 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 			indent_multi_line_indent(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)));
 		return TRUE;
 	}
-	keyval = event->keyval;
-	if ((event->state & GDK_CONTROL_MASK)
-		|| (event->keyval == GDK_KEY_Control_L)
-		|| (event->keyval == GDK_KEY_Control_R)) {
+	keyval = kv;
+	if ((state & GDK_CONTROL_MASK)
+		|| (kv == GDK_KEY_Control_L)
+		|| (kv == GDK_KEY_Control_R)) {
 		keyval = keyval + 0x10000;
 //g_print("=================================================\n");
 	}
@@ -202,35 +212,36 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 	return FALSE;
 }
 
-static gboolean cb_button_press_event(GtkWidget *view, GdkEventButton *event)
+/*
+ * GTK4: button-press-event is replaced by GtkGestureClick.
+ * The right-click cursor placement logic is preserved.
+ * Primary clipboard backup/restore is dropped — GTK4's GtkTextView
+ * handles primary selection natively.
+ */
+static void cb_button_pressed(GtkGestureClick *gesture,
+                              gint n_press, gdouble x, gdouble y,
+                              gpointer user_data)
 {
+	GtkWidget *view = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(gesture));
 	GtkTextIter iter, start, end;
-	gint x, y;
+	gint bx, by;
+	guint button;
+
+	(void)n_press;
+	(void)user_data;
 
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
 
-	if ((event->button) == 3 && (event->type == GDK_BUTTON_PRESS)) {
+	button = gtk_gesture_single_get_current_button(GTK_GESTURE_SINGLE(gesture));
+	if (button == 3) {
 		gtk_text_view_window_to_buffer_coords(GTK_TEXT_VIEW(view),
-			gtk_text_view_get_window_type(GTK_TEXT_VIEW(view), event->window),
-			(gint)event->x, (gint)event->y, &x, &y);
-		gtk_text_view_get_iter_at_location(GTK_TEXT_VIEW(view), &iter, x, y);
+			GTK_TEXT_WINDOW_WIDGET,
+			(gint)x, (gint)y, &bx, &by);
+		gtk_text_view_get_iter_at_location(GTK_TEXT_VIEW(view), &iter, bx, by);
 		gtk_text_buffer_get_selection_bounds(buffer, &start, &end);
 		if (!gtk_text_iter_in_range(&iter, &start, &end))
 			gtk_text_buffer_place_cursor(buffer, &iter);
 	}
-
-	// backup and restore the clipboard
-	gchar *current_clipboard_str = gtk_clipboard_wait_for_text(selection_primary);
-	if (((current_clipboard_str == NULL) || (current_clipboard_str[0]=='\0')) &&
-	    selection_primary_str && selection_primary_str[0]) {
-		gtk_clipboard_set_text(selection_primary, selection_primary_str, -1);
-	}
-	else {
-		g_free(selection_primary_str);
-		selection_primary_str = g_strdup(current_clipboard_str);
-	}
-
-	return FALSE;
 }
 
 static void cb_modified_changed(GtkTextBuffer *buffer, GtkWidget *view)
@@ -247,7 +258,7 @@ static void cb_modified_changed(GtkTextBuffer *buffer, GtkWidget *view)
 		undo_reset_modified_step(buffer);
 	}
 	g_free(filename);
-	gtk_window_set_title(GTK_WINDOW(gtk_widget_get_toplevel(view)), title);
+	gtk_window_set_title(GTK_WINDOW(gtk_widget_get_root(view)), title);
 	g_free(title);
 	if (pub->fi->filename)
 		exist_flag = g_file_test(
@@ -288,14 +299,33 @@ static void cb_mark_changed(GtkTextBuffer *buffer)
 		gtk_text_buffer_get_selection_bounds(buffer, NULL, NULL));
 }
 
-static void cb_focus_event(GtkWidget *view, GdkEventFocus *event)
+/*
+ * GTK4: focus-in-event / focus-out-event are replaced by
+ * GtkEventControllerFocus with "enter" and "leave" signals.
+ */
+static void cb_focus_enter(GtkEventControllerFocus *controller, gpointer user_data)
 {
+	GtkWidget *view = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(controller));
+
+	(void)user_data;
+
 	if (!gtk_text_buffer_get_selection_bounds(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), NULL, NULL))
 		gtk_text_mark_set_visible(
 			gtk_text_buffer_get_selection_bound(
-				gtk_text_view_get_buffer(GTK_TEXT_VIEW(view))), !event->in);
-	if (event->in)
-		menu_sensitivity_from_clipboard();
+				gtk_text_view_get_buffer(GTK_TEXT_VIEW(view))), FALSE);
+	menu_sensitivity_from_clipboard();
+}
+
+static void cb_focus_leave(GtkEventControllerFocus *controller, gpointer user_data)
+{
+	GtkWidget *view = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(controller));
+
+	(void)user_data;
+
+	if (!gtk_text_buffer_get_selection_bounds(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)), NULL, NULL))
+		gtk_text_mark_set_visible(
+			gtk_text_buffer_get_selection_bound(
+				gtk_text_view_get_buffer(GTK_TEXT_VIEW(view))), TRUE);
 }
 /*
 static void cb_begin_user_action(GtkTextBuffer *buffer, GtkWidget *view)
@@ -339,6 +369,9 @@ GtkWidget *create_text_view(void)
 {
 	GtkWidget *view;
 	GtkTextBuffer *buffer;
+	GtkEventController *key_controller;
+	GtkGesture *click_gesture;
+	GtkEventController *focus_controller;
 
 	view = gtk_text_view_new();
 	buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
@@ -346,10 +379,19 @@ GtkWidget *create_text_view(void)
 //	gtk_text_view_set_left_margin(GTK_TEXT_VIEW(view), 1);
 //	gtk_text_view_set_right_margin(GTK_TEXT_VIEW(view), 1);
 
-	g_signal_connect(G_OBJECT(view), "key-press-event",
-		G_CALLBACK(cb_key_press_event), NULL);
-	g_signal_connect(G_OBJECT(view), "button-press-event",
-		G_CALLBACK(cb_button_press_event), NULL);
+	/* GTK4: use GtkEventControllerKey instead of key-press-event signal */
+	key_controller = gtk_event_controller_key_new();
+	g_signal_connect(key_controller, "key-pressed",
+		G_CALLBACK(cb_key_pressed), NULL);
+	gtk_widget_add_controller(view, key_controller);
+
+	/* GTK4: use GtkGestureClick instead of button-press-event signal */
+	click_gesture = gtk_gesture_click_new();
+	gtk_gesture_single_set_button(GTK_GESTURE_SINGLE(click_gesture), 0);
+	g_signal_connect(click_gesture, "pressed",
+		G_CALLBACK(cb_button_pressed), NULL);
+	gtk_widget_add_controller(view, GTK_EVENT_CONTROLLER(click_gesture));
+
 	g_signal_connect_after(G_OBJECT(view), "cut-clipboard",
 		G_CALLBACK(menu_sensitivity_from_clipboard), NULL);
 	g_signal_connect_after(G_OBJECT(view), "copy-clipboard",
@@ -360,10 +402,14 @@ GtkWidget *create_text_view(void)
 /*	g_signal_connect_after(G_OBJECT(view), "paste-clipboard",
 		G_CALLBACK(gtk_text_view_scroll_mark_onscreen),
 		gtk_text_buffer_get_insert(buffer));*/
-	g_signal_connect_after(G_OBJECT(view), "focus-in-event",
-		G_CALLBACK(cb_focus_event), NULL);
-	g_signal_connect_after(G_OBJECT(view), "focus-out-event",
-		G_CALLBACK(cb_focus_event), NULL);
+
+	/* GTK4: use GtkEventControllerFocus instead of focus-in/out-event */
+	focus_controller = gtk_event_controller_focus_new();
+	g_signal_connect(focus_controller, "enter",
+		G_CALLBACK(cb_focus_enter), NULL);
+	g_signal_connect(focus_controller, "leave",
+		G_CALLBACK(cb_focus_leave), NULL);
+	gtk_widget_add_controller(view, focus_controller);
 
 	g_signal_connect(G_OBJECT(buffer), "mark-set",
 		G_CALLBACK(cb_mark_changed), NULL);
