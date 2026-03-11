@@ -242,31 +242,11 @@ static gint document_replace_real(GtkWidget *textview)
 
 static GtkWidget *search_ok_button;
 
-#if !SEARCH_HISTORY
-static gint entry_len;
-
-static void toggle_sensitivity(GtkWidget *w, gint pos1, gint pos2, gint *pos3)
-{
-	(void)w;
-	if (pos3) {
-		if (!entry_len)
-			gtk_widget_set_sensitive(search_ok_button, TRUE);
-		entry_len += pos2;
-	} else {
-		entry_len = entry_len + pos1 - pos2;
-		if (!entry_len)
-			gtk_widget_set_sensitive(search_ok_button, FALSE);
-	}
-}
-#endif /* !SEARCH_HISTORY */
-
-#if SEARCH_HISTORY
 static void toggle_sensitivity(GtkWidget *entry)
 {
 	gboolean has_text = *(gtk_editable_get_text(GTK_EDITABLE(entry))) != '\0';
 	gtk_widget_set_sensitive(search_ok_button, has_text);
 }
-#endif
 
 static void toggle_check_case(GtkWidget *widget)
 {
@@ -399,20 +379,14 @@ gboolean run_dialog_search(GtkWidget *textview, gint mode)
 	/* Sensitivity tracking for the OK button */
 #if !SEARCH_HISTORY
 	gtk_widget_set_sensitive(ok_button, FALSE);
-	entry_len = 0;
-	g_signal_connect(G_OBJECT(entry_find), "insert-text",
-		G_CALLBACK(toggle_sensitivity), NULL);
-	g_signal_connect(G_OBJECT(entry_find), "delete-text",
+	g_signal_connect(G_OBJECT(entry_find), "changed",
 		G_CALLBACK(toggle_sensitivity), NULL);
 	if (string_find) {
 		gtk_editable_set_text(GTK_EDITABLE(entry_find), string_find);
-		gtk_widget_set_sensitive(ok_button, TRUE);
 	}
 #endif
 #if SEARCH_HISTORY
-	g_signal_connect_after(G_OBJECT(entry_find), "insert-text",
-		G_CALLBACK(toggle_sensitivity), NULL);
-	g_signal_connect_after(G_OBJECT(entry_find), "delete-text",
+	g_signal_connect_after(G_OBJECT(entry_find), "changed",
 		G_CALLBACK(toggle_sensitivity), NULL);
 	buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
 	if (gtk_text_buffer_get_selection_bounds(buffer, &start_iter, &end_iter)) {
