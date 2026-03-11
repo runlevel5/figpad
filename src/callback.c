@@ -21,6 +21,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <limits.h>
+
+/* Resolve the path of the running binary.
+ * Uses /proc/self/exe on Linux, falls back to PACKAGE for PATH lookup. */
+static gchar *get_self_exe_path(void)
+{
+	char buf[PATH_MAX];
+	ssize_t len = readlink("/proc/self/exe", buf, sizeof(buf) - 1);
+	if (len > 0) {
+		buf[len] = '\0';
+		return g_strdup(buf);
+	}
+	return g_strdup(PACKAGE);
+}
 
 static void set_selection_bound(GtkTextBuffer *buffer, gint start, gint end)
 {
@@ -39,15 +54,18 @@ void on_file_new(void)
 {
 	gchar *comline;
 	gchar *option;
+	gchar *exe;
 
 	save_config_file();
+	exe = get_self_exe_path();
 	option = pub->fi->charset_flag ?
 		g_strdup_printf("%s%s", " --codeset=", pub->fi->charset) : "";
-	comline = g_strdup_printf("%s%s", PACKAGE, option);
+	comline = g_strdup_printf("%s%s", exe, option);
 	if (pub->fi->charset_flag)
 		g_free(option);
 	g_spawn_command_line_async(comline, NULL);
 	g_free(comline);
+	g_free(exe);
 }
 
 void on_file_open(void)
