@@ -144,37 +144,18 @@ ACTION_CB(option_font, on_option_font)
 ACTION_CB(option_always_on_top, on_option_always_on_top)
 ACTION_CB(help_about, on_help_about)
 
-/* Toggle action callbacks — read new state from the GVariant */
-static void action_toggle_word_wrap(GSimpleAction *action, GVariant *param, gpointer data)
+/*
+ * Generic toggle action handler — flips the boolean state and calls
+ * the void(*)(void) callback passed through user_data.
+ */
+static void action_toggle(GSimpleAction *action, GVariant *param, gpointer data)
 {
-	(void)param; (void)data;
+	(void)param;
 	GVariant *state = g_action_get_state(G_ACTION(action));
 	gboolean active = !g_variant_get_boolean(state);
 	g_variant_unref(state);
 	g_simple_action_set_state(action, g_variant_new_boolean(active));
-	on_option_word_wrap();
-	schedule_refocus();
-}
-
-static void action_toggle_line_numbers(GSimpleAction *action, GVariant *param, gpointer data)
-{
-	(void)param; (void)data;
-	GVariant *state = g_action_get_state(G_ACTION(action));
-	gboolean active = !g_variant_get_boolean(state);
-	g_variant_unref(state);
-	g_simple_action_set_state(action, g_variant_new_boolean(active));
-	on_option_line_numbers();
-	schedule_refocus();
-}
-
-static void action_toggle_auto_indent(GSimpleAction *action, GVariant *param, gpointer data)
-{
-	(void)param; (void)data;
-	GVariant *state = g_action_get_state(G_ACTION(action));
-	gboolean active = !g_variant_get_boolean(state);
-	g_variant_unref(state);
-	g_simple_action_set_state(action, g_variant_new_boolean(active));
-	on_option_auto_indent();
+	((void (*)(void))data)();
 	schedule_refocus();
 }
 
@@ -209,11 +190,20 @@ static const GActionEntry win_actions[] = {
 	{ "about",          action_help_about,        NULL, NULL, NULL },
 };
 
-/* stateful toggle actions — initial state FALSE, toggled on activate */
-static const GActionEntry toggle_actions[] = {
-	{ "word-wrap",     action_toggle_word_wrap,     NULL, "false", NULL },
-	{ "line-numbers",  action_toggle_line_numbers,  NULL, "false", NULL },
-	{ "auto-indent",   action_toggle_auto_indent,   NULL, "false", NULL },
+/*
+ * Stateful toggle actions — registered individually via
+ * g_action_map_add_action() so that each one carries its own
+ * callback in user_data.
+ */
+typedef struct {
+	const gchar *name;
+	void (*callback)(void);
+} ToggleActionDef;
+
+static const ToggleActionDef toggle_defs[] = {
+	{ "word-wrap",    on_option_word_wrap    },
+	{ "line-numbers", on_option_line_numbers },
+	{ "auto-indent",  on_option_auto_indent  },
 };
 
 static GMenuModel *build_menu_model(void)
@@ -367,8 +357,16 @@ GtkWidget *create_menu_bar(GtkWindow *window, GtkApplication *app)
 	/* register actions on the window */
 	g_action_map_add_action_entries(G_ACTION_MAP(window),
 		win_actions, G_N_ELEMENTS(win_actions), NULL);
-	g_action_map_add_action_entries(G_ACTION_MAP(window),
-		toggle_actions, G_N_ELEMENTS(toggle_actions), NULL);
+
+	/* register toggle actions individually so each carries its callback */
+	for (gsize i = 0; i < G_N_ELEMENTS(toggle_defs); i++) {
+		GSimpleAction *a = g_simple_action_new_stateful(
+			toggle_defs[i].name, NULL, g_variant_new_boolean(FALSE));
+		g_signal_connect(a, "activate",
+			G_CALLBACK(action_toggle), (gpointer)toggle_defs[i].callback);
+		g_action_map_add_action(G_ACTION_MAP(window), G_ACTION(a));
+		g_object_unref(a);
+	}
 
 	/* keyboard accelerators */
 	const gchar *new_accels[]           = { "<Control>n", NULL };
