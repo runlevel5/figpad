@@ -551,6 +551,7 @@ void run_dialog_jump_to(GtkWidget *textview)
 	g_main_loop_unref(data.loop);
 
 	if (data.accepted) {
+		gtk_spin_button_update(GTK_SPIN_BUTTON(spinner));
 		gtk_text_buffer_get_iter_at_line(textbuffer, &iter,
 			gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinner)) - 1);
 		gtk_text_buffer_place_cursor(textbuffer, &iter);
