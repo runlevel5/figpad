@@ -160,8 +160,9 @@ void on_file_stats(void)
 #if ENABLE_PRINT
 void on_file_print(void)
 {
-	create_gtkprint_session(GTK_TEXT_VIEW(pub->mw->view),
-		get_file_basename(pub->fi->filename, FALSE));
+	gchar *basename = get_file_basename(pub->fi->filename, FALSE);
+	create_gtkprint_session(GTK_TEXT_VIEW(pub->mw->view), basename);
+	g_free(basename);
 }
 #endif
 
