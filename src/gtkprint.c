@@ -185,10 +185,12 @@ void create_gtkprint_session(GtkTextView *text_view, const gchar *title)
 	case GTK_PRINT_OPERATION_RESULT_ERROR:
 		create_error_dialog(text_view, err->message);
 		g_error_free(err);
+		break;
 	case GTK_PRINT_OPERATION_RESULT_APPLY:
 		if (settings)
 			g_object_unref(settings);
 		settings = g_object_ref(gtk_print_operation_get_print_settings(op));
+		break;
 	default:
 		break;
 	}
