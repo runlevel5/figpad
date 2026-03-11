@@ -54,7 +54,10 @@ static void cb_begin_print(GtkPrintOperation *op,
 
 	page_width = gtk_print_context_get_width(ctx);
 	page_height = gtk_print_context_get_height(ctx);
-	font_desc = pango_font_description_from_string(get_current_font_name());
+
+	gchar *font_name = get_current_font_name();
+	font_desc = pango_font_description_from_string(font_name);
+	g_free(font_name);
 	layout = gtk_print_context_create_pango_layout(ctx);
 	pango_layout_set_width(layout, page_width * PANGO_SCALE);
 	pango_layout_set_font_description(layout, font_desc);
