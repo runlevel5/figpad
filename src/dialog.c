@@ -19,6 +19,41 @@
 
 #include "figpad.h"
 
+typedef struct {
+	GMainLoop *loop;
+	gint response;
+} SyncDialogData;
+
+static void on_sync_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data)
+{
+	(void)dialog;
+	SyncDialogData *data = user_data;
+	data->response = response_id;
+	g_main_loop_quit(data->loop);
+}
+
+/*
+ * run_dialog_sync: helper to run a GtkDialog synchronously using a nested
+ * GMainLoop.  Returns the response id.
+ *
+ * TODO: convert to async dialog API in a future cleanup pass
+ */
+gint run_dialog_sync(GtkDialog *dialog)
+{
+	SyncDialogData data;
+	data.response = GTK_RESPONSE_NONE;
+	data.loop = g_main_loop_new(NULL, FALSE);
+
+	g_signal_connect(dialog, "response",
+		G_CALLBACK(on_sync_dialog_response), &data);
+
+	gtk_window_present(GTK_WINDOW(dialog));
+	g_main_loop_run(data.loop);
+	g_main_loop_unref(data.loop);
+
+	return data.response;
+}
+
 /* GTK_MESSAGE_INFO, GTK_MESSAGE_WARNING, GTK_MESSAGE_ERROR */
 void run_dialog_message(GtkWidget *window,
 	GtkMessageType type,
@@ -43,8 +78,9 @@ void run_dialog_message(GtkWidget *window,
 	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
 	g_free(str);
 
-	gtk_dialog_run(GTK_DIALOG(dialog));
-	gtk_widget_destroy(dialog);
+	/* TODO: convert to async dialog API in a future cleanup pass */
+	run_dialog_sync(GTK_DIALOG(dialog));
+	gtk_window_destroy(GTK_WINDOW(dialog));
 }
 
 GtkWidget *create_dialog_message_question(GtkWidget *window, gchar *message, ...)
@@ -88,8 +124,9 @@ gint run_dialog_message_question(GtkWidget *window, gchar *message, ...)
 	dialog = create_dialog_message_question(window, str);
 	g_free(str);
 
-	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	gtk_widget_destroy(dialog);
+	/* TODO: convert to async dialog API in a future cleanup pass */
+	res = run_dialog_sync(GTK_DIALOG(dialog));
+	gtk_window_destroy(GTK_WINDOW(dialog));
 
 	return res;
 }

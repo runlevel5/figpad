@@ -62,19 +62,6 @@ gchar *get_current_font_name(void)
 	return g_strdup("Monospace 12");
 }
 
-typedef struct {
-	GMainLoop *loop;
-	gint response;
-} FontDialogData;
-
-static void on_font_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data)
-{
-	(void)dialog;
-	FontDialogData *data = user_data;
-	data->response = response_id;
-	g_main_loop_quit(data->loop);
-}
-
 static gchar *get_font_name_by_selector(GtkWidget *window, gchar *current_fontname)
 {
 	GtkWidget *dialog;
@@ -85,18 +72,9 @@ static gchar *get_font_name_by_selector(GtkWidget *window, gchar *current_fontna
 	gtk_font_chooser_set_font(GTK_FONT_CHOOSER(dialog), current_fontname);
 
 	/* TODO: convert to async dialog API in a future cleanup pass */
-	FontDialogData data;
-	data.response = GTK_RESPONSE_NONE;
-	data.loop = g_main_loop_new(NULL, FALSE);
+	gint response = run_dialog_sync(GTK_DIALOG(dialog));
 
-	g_signal_connect(dialog, "response",
-		G_CALLBACK(on_font_dialog_response), &data);
-
-	gtk_window_present(GTK_WINDOW(dialog));
-	g_main_loop_run(data.loop);
-	g_main_loop_unref(data.loop);
-
-	if (data.response == GTK_RESPONSE_OK)
+	if (response == GTK_RESPONSE_OK)
 		fontname = gtk_font_chooser_get_font(GTK_FONT_CHOOSER(dialog));
 	else
 		fontname = NULL;

@@ -121,41 +121,6 @@ gint on_file_save_as(void)
 }
 
 #if ENABLE_STATISTICS
-typedef struct {
-	GMainLoop *loop;
-	gint response;
-} SyncDialogData;
-
-static void on_sync_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data)
-{
-	(void)dialog;
-	SyncDialogData *data = user_data;
-	data->response = response_id;
-	g_main_loop_quit(data->loop);
-}
-
-/*
- * run_dialog_sync: helper to run a GtkDialog synchronously using a nested
- * GMainLoop.  Returns the response id.
- *
- * TODO: convert to async dialog API in a future cleanup pass
- */
-static gint run_dialog_sync(GtkDialog *dialog)
-{
-	SyncDialogData data;
-	data.response = GTK_RESPONSE_NONE;
-	data.loop = g_main_loop_new(NULL, FALSE);
-
-	g_signal_connect(dialog, "response",
-		G_CALLBACK(on_sync_dialog_response), &data);
-
-	gtk_window_present(GTK_WINDOW(dialog));
-	g_main_loop_run(data.loop);
-	g_main_loop_unref(data.loop);
-
-	return data.response;
-}
-
 void on_file_stats(void)
 {
 	gchar * stats = file_stats( pub->mw->view, pub->fi );

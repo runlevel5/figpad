@@ -20,6 +20,7 @@
 #ifndef _DIALOG_H
 #define _DIALOG_H
 
+gint run_dialog_sync(GtkDialog *dialog);
 void run_dialog_message(GtkWidget *window, GtkMessageType type, gchar *message, ...);
 GtkWidget *create_dialog_message_question(GtkWidget *window, gchar *message, ...);
 gint run_dialog_message_question(GtkWidget *window, gchar *message, ...);
