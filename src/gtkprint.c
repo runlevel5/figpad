@@ -159,21 +159,15 @@ static GtkPrintOperation *create_print_operation(GtkTextView *text_view)
 
 static void create_error_dialog(GtkTextView *text_view, gchar *message)
 {
-	GtkWidget *dialog;
+	GtkAlertDialog *alert;
 
-	dialog = gtk_message_dialog_new(
-		GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(text_view))),
-		GTK_DIALOG_DESTROY_WITH_PARENT,
-		GTK_MESSAGE_ERROR,
-		GTK_BUTTONS_NONE,
-		"%s", message);
-	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
-	gtk_dialog_add_buttons(GTK_DIALOG(dialog),
-		_("_OK"), GTK_RESPONSE_CANCEL, NULL);
-	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
-	/* TODO: convert to async dialog API in a future cleanup pass */
-	run_dialog_sync(GTK_DIALOG(dialog));
-	gtk_window_destroy(GTK_WINDOW(dialog));
+	alert = gtk_alert_dialog_new("%s", message);
+	gtk_alert_dialog_set_buttons(alert, (const char *[]){ _("_OK"), NULL });
+	gtk_alert_dialog_set_default_button(alert, 0);
+	gtk_alert_dialog_set_cancel_button(alert, 0);
+	gtk_alert_dialog_show(alert,
+		GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(text_view))));
+	g_object_unref(alert);
 }
 
 void create_gtkprint_session(GtkTextView *text_view, const gchar *title)
