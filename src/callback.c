@@ -84,9 +84,7 @@ void on_file_open(void)
 			g_free(pub->fi);
 			pub->fi = fi;
 			undo_clear_all(pub->mw->buffer);
-//			set_main_window_title();
 			force_call_cb_modified_changed(pub->mw->view);
-//			undo_init(sd->mainwin->textview, sd->mainwin->textbuffer, sd->mainwin->menubar);
 		}
 	}
 }
@@ -100,9 +98,7 @@ gint on_file_save(void)
 		return on_file_save_as();
 	if (file_save_real(pub->mw->view, pub->fi))
 		return -1;
-//	set_main_window_title();
 	force_call_cb_modified_changed(pub->mw->view);
-//	undo_reset_step_modif();
 	return 0;
 }
 
@@ -120,37 +116,71 @@ gint on_file_save_as(void)
 	g_free(pub->fi);
 	pub->fi = fi;
 	undo_clear_all(pub->mw->buffer);
-//	set_main_window_title();
 	force_call_cb_modified_changed(pub->mw->view);
-//	undo_init(sd->mainwin->textview, sd->mainwin->textbuffer, sd->mainwin->menubar);
 	return 0;
 }
 
 #if ENABLE_STATISTICS
+typedef struct {
+	GMainLoop *loop;
+	gint response;
+} SyncDialogData;
+
+static void on_sync_dialog_response(GtkDialog *dialog, gint response_id, gpointer user_data)
+{
+	(void)dialog;
+	SyncDialogData *data = user_data;
+	data->response = response_id;
+	g_main_loop_quit(data->loop);
+}
+
+/*
+ * run_dialog_sync: helper to run a GtkDialog synchronously using a nested
+ * GMainLoop.  Returns the response id.
+ *
+ * TODO: convert to async dialog API in a future cleanup pass
+ */
+static gint run_dialog_sync(GtkDialog *dialog)
+{
+	SyncDialogData data;
+	data.response = GTK_RESPONSE_NONE;
+	data.loop = g_main_loop_new(NULL, FALSE);
+
+	g_signal_connect(dialog, "response",
+		G_CALLBACK(on_sync_dialog_response), &data);
+
+	gtk_window_present(GTK_WINDOW(dialog));
+	g_main_loop_run(data.loop);
+	g_main_loop_unref(data.loop);
+
+	return data.response;
+}
+
 void on_file_stats(void)
 {
 	gchar * stats = file_stats( pub->mw->view, pub->fi );
 
-	GtkMessageDialog * msg = (GtkMessageDialog *)
-		gtk_message_dialog_new_with_markup( NULL,
-			GTK_DIALOG_MODAL,
-			GTK_MESSAGE_INFO,
-			GTK_BUTTONS_OK,
-			_("<b>Statistics</b>")
+	GtkWidget *msg = gtk_message_dialog_new_with_markup(
+		GTK_WINDOW(pub->mw->window),
+		GTK_DIALOG_MODAL,
+		GTK_MESSAGE_INFO,
+		GTK_BUTTONS_OK,
+		_("<b>Statistics</b>")
 	);
 
 	gtk_message_dialog_format_secondary_markup(
-		msg,
+		GTK_MESSAGE_DIALOG(msg),
 		"<i>%s</i>",
 		stats
 	);
 
-	gtk_window_set_title( GTK_WINDOW(msg),
-		pub->fi->filename );
+	gtk_window_set_title(GTK_WINDOW(msg), pub->fi->filename);
 	gtk_window_set_transient_for(GTK_WINDOW(msg),
 		GTK_WINDOW(pub->mw->window));
-	gtk_dialog_run( (GtkDialog *) msg );
-	gtk_widget_destroy( (GtkWidget *) msg );
+
+	/* TODO: convert to async dialog API in a future cleanup pass */
+	run_dialog_sync(GTK_DIALOG(msg));
+	gtk_window_destroy(GTK_WINDOW(msg));
 
 	g_free( stats );
 }
@@ -169,11 +199,11 @@ void on_file_print(void)
 		get_file_basename(pub->fi->filename, FALSE));
 }
 #endif
+
 void on_file_close(void)
 {
 	if (!check_text_modification()) {
 		force_block_cb_modified_changed(pub->mw->view);
-//		undo_block_signal(textbuffer);
 		gtk_text_buffer_set_text(pub->mw->buffer, "", 0);
 		gtk_text_buffer_set_modified(pub->mw->buffer, FALSE);
 		if (pub->fi->filename)
@@ -185,11 +215,8 @@ void on_file_close(void)
 		pub->fi->charset_flag = FALSE;
 		pub->fi->lineend = LF;
 		undo_clear_all(pub->mw->buffer);
-//		set_main_window_title();
 		force_call_cb_modified_changed(pub->mw->view);
 		force_unblock_cb_modified_changed(pub->mw->view);
-//		undo_unblock_signal(textbuffer);
-//		undo_init(sd->mainwin->textview, textbuffer, sd->mainwin->menubar);
 	}
 }
 
@@ -197,7 +224,7 @@ void on_file_quit(void)
 {
 	if (!check_text_modification()) {
 		save_config_file();
-		gtk_main_quit();
+		g_application_quit(G_APPLICATION(pub->app));
 	}
 }
 
@@ -224,11 +251,7 @@ void on_edit_copy(void)
 void on_edit_paste(void)
 {
 	g_signal_emit_by_name(G_OBJECT(pub->mw->view), "paste-clipboard");
-//	TODO: Use modify signal!!
-/*	gtk_text_view_scroll_mark_onscreen(
-		GTK_TEXT_VIEW(pub->mw->view),
-		gtk_text_buffer_get_insert(pub->mw->buffer));
-*/}
+}
 
 void on_edit_delete(void)
 {
@@ -238,7 +261,6 @@ void on_edit_delete(void)
 void on_edit_select_all(void)
 {
 	set_selection_bound(pub->mw->buffer, 0, -1);
-//	g_signal_emit_by_name(G_OBJECT(pub->mw->view), "select-all");
 }
 
 static void activate_quick_find(void)
@@ -246,12 +268,7 @@ static void activate_quick_find(void)
 	static gboolean flag = FALSE;
 
 	if (!flag) {
-		gtk_widget_set_sensitive(
-			gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Search/FindNext"),
-			TRUE);
-		gtk_widget_set_sensitive(
-			gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Search/FindPrevious"),
-			TRUE);
+		menu_sensitivity_from_find(TRUE);
 		flag = TRUE;
 	}
 }
@@ -290,20 +307,14 @@ void on_option_font(void)
 
 void on_option_word_wrap(void)
 {
-	gboolean state;
-
-	state = gtk_toggle_action_get_active(
-		GTK_TOGGLE_ACTION(gtk_ui_manager_get_action(pub->mw->menubar, "/M/Options/WordWrap")));
+	gboolean state = menu_toggle_get_active("word-wrap");
 	gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(pub->mw->view),
 		state ? GTK_WRAP_WORD : GTK_WRAP_NONE);
 }
 
 void on_option_line_numbers(void)
 {
-	gboolean state;
-
-	state = gtk_toggle_action_get_active(
-		GTK_TOGGLE_ACTION(gtk_ui_manager_get_action(pub->mw->menubar, "/M/Options/LineNumbers")));
+	gboolean state = menu_toggle_get_active("line-numbers");
 	show_line_numbers(pub->mw->view, state);
 }
 
@@ -317,10 +328,7 @@ void on_option_always_on_top(void)
 
 void on_option_auto_indent(void)
 {
-	gboolean state;
-
-	state = gtk_toggle_action_get_active(
-		GTK_TOGGLE_ACTION(gtk_ui_manager_get_action(pub->mw->menubar, "/M/Options/AutoIndent")));
+	gboolean state = menu_toggle_get_active("auto-indent");
 	indent_set_state(state);
 }
 
