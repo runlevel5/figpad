@@ -109,7 +109,7 @@ gint file_open_real(GtkWidget *view, FileInfo *fi)
 
 	if (!g_file_get_contents(fi->filename, &contents, &length, &err)) {
 		if (g_file_test(fi->filename, G_FILE_TEST_EXISTS)) {
-			run_dialog_message(gtk_widget_get_toplevel(view),
+			run_dialog_message(GTK_WIDGET(gtk_widget_get_root(view)),
 				GTK_MESSAGE_ERROR, err->message);
 			g_error_free(err);
 			return -1;
@@ -200,11 +200,11 @@ gint file_save_real(GtkWidget *view, FileInfo *fi)
 	if (err) {
 		switch (err->code) {
 		case G_CONVERT_ERROR_ILLEGAL_SEQUENCE:
-			run_dialog_message(gtk_widget_get_toplevel(view),
+			run_dialog_message(GTK_WIDGET(gtk_widget_get_root(view)),
 				GTK_MESSAGE_ERROR, _("Can't convert codeset to '%s'"), fi->charset);
 			break;
 		default:
-			run_dialog_message(gtk_widget_get_toplevel(view),
+			run_dialog_message(GTK_WIDGET(gtk_widget_get_root(view)),
 				GTK_MESSAGE_ERROR, err->message);
 		}
 		g_error_free(err);
@@ -213,12 +213,12 @@ gint file_save_real(GtkWidget *view, FileInfo *fi)
 
 	fp = fopen(fi->filename, "w");
 	if (!fp) {
-		run_dialog_message(gtk_widget_get_toplevel(view),
+		run_dialog_message(GTK_WIDGET(gtk_widget_get_root(view)),
 			GTK_MESSAGE_ERROR, _("Can't open file to write"));
 		return -1;
 	}
 	if (fwrite(cstr, 1, wbytes, fp) != wbytes) {
-		run_dialog_message(gtk_widget_get_toplevel(view),
+		run_dialog_message(GTK_WIDGET(gtk_widget_get_root(view)),
 			GTK_MESSAGE_ERROR, _("Can't write file"));
 		fclose(fp);
 		return -1;
