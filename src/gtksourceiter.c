@@ -553,7 +553,7 @@ gtk_source_iter_forward_search(const GtkTextIter * iter,
     g_return_val_if_fail(str != NULL, FALSE);
 
 	if ((flags & GTK_SOURCE_SEARCH_CASE_INSENSITIVE) == 0)
-        return gtk_text_iter_forward_search(iter, str, flags,
+        return gtk_text_iter_forward_search(iter, str, (GtkTextSearchFlags)flags,
                                             match_start, match_end, limit);
 
     if (limit && gtk_text_iter_compare(iter, limit) >= 0)
@@ -653,7 +653,7 @@ gtk_source_iter_backward_search(const GtkTextIter * iter,
     g_return_val_if_fail(str != NULL, FALSE);
 
 	if ((flags & GTK_SOURCE_SEARCH_CASE_INSENSITIVE) == 0)
-        return gtk_text_iter_backward_search(iter, str, flags,
+        return gtk_text_iter_backward_search(iter, str, (GtkTextSearchFlags)flags,
                                              match_start, match_end, limit);
 
     if (limit && gtk_text_iter_compare(iter, limit) <= 0)
