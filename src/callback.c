@@ -228,7 +228,7 @@ static void activate_quick_find(void)
 
 void on_search_find(void)
 {
-	if (run_dialog_search(pub->mw->view, 0) == GTK_RESPONSE_OK)
+	if (run_dialog_search(pub->mw->view, 0))
 		activate_quick_find();
 }
 
@@ -244,7 +244,7 @@ void on_search_find_previous(void)
 
 void on_search_replace(void)
 {
-	if (run_dialog_search(pub->mw->view, 1) == GTK_RESPONSE_OK)
+	if (run_dialog_search(pub->mw->view, 1))
 		activate_quick_find();
 }
 

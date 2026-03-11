@@ -251,22 +251,22 @@ static gint document_replace_real(GtkWidget *textview)
 }
 
 
+static GtkWidget *search_ok_button;
+
 #if !SEARCH_HISTORY
 static gint entry_len;
 
 static void toggle_sensitivity(GtkWidget *w, gint pos1, gint pos2, gint *pos3)
 {
+	(void)w;
 	if (pos3) {
 		if (!entry_len)
-			gtk_dialog_set_response_sensitive(GTK_DIALOG(gtk_widget_get_root(w)),
-				GTK_RESPONSE_OK, TRUE);
+			gtk_widget_set_sensitive(search_ok_button, TRUE);
 		entry_len += pos2;
-//		entry_len = entry_len + pos2;
 	} else {
 		entry_len = entry_len + pos1 - pos2;
 		if (!entry_len)
-			gtk_dialog_set_response_sensitive(GTK_DIALOG(gtk_widget_get_root(w)),
-				GTK_RESPONSE_OK, FALSE);
+			gtk_widget_set_sensitive(search_ok_button, FALSE);
 	}
 }
 #endif /* !SEARCH_HISTORY */
@@ -275,26 +275,41 @@ static void toggle_sensitivity(GtkWidget *w, gint pos1, gint pos2, gint *pos3)
 static void toggle_sensitivity(GtkWidget *entry)
 {
 	gboolean has_text = *(gtk_editable_get_text(GTK_EDITABLE(entry))) != '\0';
-	gtk_dialog_set_response_sensitive(
-		GTK_DIALOG(gtk_widget_get_root(entry)), GTK_RESPONSE_OK,
-		(has_text) ? TRUE : FALSE);
+	gtk_widget_set_sensitive(search_ok_button, has_text);
 }
 #endif
 
 static void toggle_check_case(GtkWidget *widget)
 {
-	match_case = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+	match_case = gtk_check_button_get_active(GTK_CHECK_BUTTON(widget));
 }
 
 static void toggle_check_all(GtkWidget *widget)
 {
-	replace_all = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget));
+	replace_all = gtk_check_button_get_active(GTK_CHECK_BUTTON(widget));
 }
 
-gint run_dialog_search(GtkWidget *textview, gint mode)
+typedef struct {
+	GMainLoop *loop;
+	gboolean accepted;
+} SearchData;
+
+static void on_search_accept(GtkWidget *widget, gpointer user_data)
+{
+	(void)widget;
+	SearchData *data = user_data;
+	data->accepted = TRUE;
+	g_main_loop_quit(data->loop);
+}
+
+gboolean run_dialog_search(GtkWidget *textview, gint mode)
 {
 	GtkWidget *dialog;
+	GtkWidget *content_box;
 	GtkWidget *grid;
+	GtkWidget *button_box;
+	GtkWidget *cancel_button;
+	GtkWidget *ok_button;
 	GtkWidget *label_find, *label_replace;
 #if SEARCH_HISTORY
 	GtkWidget *combo_find, *combo_replace = NULL;
@@ -303,148 +318,160 @@ gint run_dialog_search(GtkWidget *textview, gint mode)
 #endif
 	GtkWidget *entry_find, *entry_replace = NULL;
 	GtkWidget *check_case, *check_all;
-	gint res;
+	SearchData data;
 
-	if (mode) {
-		dialog = gtk_dialog_new_with_buttons(_("Replace"),
-			GTK_WINDOW(gtk_widget_get_root(textview)),
-			GTK_DIALOG_DESTROY_WITH_PARENT,
-			_("_Cancel"), GTK_RESPONSE_CANCEL,
-			_("Find and _Replace"), GTK_RESPONSE_OK,
-			NULL);
-		gtk_widget_set_margin_start(dialog, 4);
-		gtk_widget_set_margin_end(dialog, 4);
-		gtk_widget_set_margin_top(dialog, 4);
-		gtk_widget_set_margin_bottom(dialog, 4);
-		gtk_widget_set_size_request(dialog, 400, -1);
-	} else {
-		dialog = gtk_dialog_new_with_buttons(_("Find"),
-			GTK_WINDOW(gtk_widget_get_root(textview)),
-			GTK_DIALOG_DESTROY_WITH_PARENT,
-			_("_Cancel"), GTK_RESPONSE_CANCEL,
-			_("_Find"), GTK_RESPONSE_OK,
-			NULL);
-		gtk_widget_set_margin_start(dialog, 4);
-		gtk_widget_set_margin_end(dialog, 4);
-		gtk_widget_set_margin_top(dialog, 4);
-		gtk_widget_set_margin_bottom(dialog, 4);
-		gtk_widget_set_size_request(dialog, 400, -1);
-	}
+	/* Plain GtkWindow instead of deprecated GtkDialog */
+	dialog = gtk_window_new();
+	gtk_window_set_title(GTK_WINDOW(dialog),
+		mode ? _("Replace") : _("Find"));
+	gtk_window_set_transient_for(GTK_WINDOW(dialog),
+		GTK_WINDOW(gtk_widget_get_root(textview)));
+	gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
+	gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
+	gtk_widget_set_size_request(dialog, 400, -1);
+
+	content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+	gtk_widget_set_margin_start(content_box, 12);
+	gtk_widget_set_margin_end(content_box, 12);
+	gtk_widget_set_margin_top(content_box, 12);
+	gtk_widget_set_margin_bottom(content_box, 12);
+	gtk_window_set_child(GTK_WINDOW(dialog), content_box);
 
 	grid = gtk_grid_new();
-	 gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
-	 gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
-	 gtk_widget_set_margin_start(grid, 8);
-	 gtk_widget_set_margin_end(grid, 8);
-	 gtk_widget_set_margin_top(grid, 8);
-	 gtk_widget_set_margin_bottom(grid, 8);
-	 gtk_box_append(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid);
+	gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+	gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+	gtk_box_append(GTK_BOX(content_box), grid);
+
 	label_find = gtk_label_new_with_mnemonic(_("Fi_nd what:"));
-	 gtk_widget_set_halign(label_find, GTK_ALIGN_START);
-	 gtk_grid_attach(GTK_GRID(grid), label_find, 0, 0, 1, 1);
+	gtk_widget_set_halign(label_find, GTK_ALIGN_START);
+	gtk_grid_attach(GTK_GRID(grid), label_find, 0, 0, 1, 1);
 #if SEARCH_HISTORY
-	combo_find = create_combo_with_history (&find_history);
-	 gtk_widget_set_hexpand(combo_find, TRUE);
-	 gtk_grid_attach(GTK_GRID(grid), combo_find, 1, 0, 1, 1);
-	 entry_find = gtk_combo_box_get_child(GTK_COMBO_BOX(combo_find));
+	combo_find = create_combo_with_history(&find_history);
+	gtk_widget_set_hexpand(combo_find, TRUE);
+	gtk_grid_attach(GTK_GRID(grid), combo_find, 1, 0, 1, 1);
+	entry_find = gtk_combo_box_get_child(GTK_COMBO_BOX(combo_find));
 #else
 	entry_find = gtk_entry_new();
-	 gtk_widget_set_hexpand(entry_find, TRUE);
-	 gtk_grid_attach(GTK_GRID(grid), entry_find, 1, 0, 1, 1);
+	gtk_widget_set_hexpand(entry_find, TRUE);
+	gtk_grid_attach(GTK_GRID(grid), entry_find, 1, 0, 1, 1);
 #endif
-	 gtk_label_set_mnemonic_widget(GTK_LABEL(label_find), entry_find);
-#if !SEARCH_HISTORY
-	 gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog),
-		GTK_RESPONSE_OK, FALSE);
-	 entry_len = 0;
-	 g_signal_connect(G_OBJECT(entry_find), "insert-text",
-		G_CALLBACK(toggle_sensitivity), NULL);
-	 g_signal_connect(G_OBJECT(entry_find), "delete-text",
-		G_CALLBACK(toggle_sensitivity), NULL);
-	 if (string_find) {
-		 gtk_editable_set_text(GTK_EDITABLE(entry_find), string_find);
-		 gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog),
-			GTK_RESPONSE_OK, TRUE);
-	 }
-#endif
-#if SEARCH_HISTORY
-	 gtk_entry_set_activates_default(GTK_ENTRY(entry_find), TRUE);
-	 g_signal_connect_after(G_OBJECT(entry_find), "insert-text",
-		G_CALLBACK(toggle_sensitivity), NULL);
-	 g_signal_connect_after(G_OBJECT(entry_find), "delete-text",
-		G_CALLBACK(toggle_sensitivity), NULL);
-	 buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (textview));
-	 if (gtk_text_buffer_get_selection_bounds (buffer, &start_iter, &end_iter)) {
-		if (string_find != NULL)
-		 g_free(string_find);
-		string_find = gtk_text_buffer_get_text (buffer, &start_iter, &end_iter,
-			FALSE);
-		gtk_editable_set_text(GTK_EDITABLE(entry_find), string_find);
-		gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog),
-			GTK_RESPONSE_OK, TRUE);
-	 }
-	 else
-		gtk_editable_set_text(GTK_EDITABLE(entry_find), "");
-#endif
+	gtk_label_set_mnemonic_widget(GTK_LABEL(label_find), entry_find);
+
 	if (mode) {
 		label_replace = gtk_label_new_with_mnemonic(_("Re_place with:"));
-		 gtk_widget_set_halign(label_replace, GTK_ALIGN_START);
-		 gtk_grid_attach(GTK_GRID(grid), label_replace, 0, 1, 1, 1);
+		gtk_widget_set_halign(label_replace, GTK_ALIGN_START);
+		gtk_grid_attach(GTK_GRID(grid), label_replace, 0, 1, 1, 1);
 #if SEARCH_HISTORY
-		combo_replace = create_combo_with_history (&replace_history);
-		 gtk_widget_set_hexpand(combo_replace, TRUE);
-		 gtk_grid_attach(GTK_GRID(grid), combo_replace, 1, 1, 1, 1);
+		combo_replace = create_combo_with_history(&replace_history);
+		gtk_widget_set_hexpand(combo_replace, TRUE);
+		gtk_grid_attach(GTK_GRID(grid), combo_replace, 1, 1, 1, 1);
 		entry_replace = gtk_combo_box_get_child(GTK_COMBO_BOX(combo_replace));
-		 gtk_label_set_mnemonic_widget(GTK_LABEL(label_replace), entry_replace);
-		 gtk_editable_set_text(GTK_EDITABLE(entry_replace), "");
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label_replace), entry_replace);
+		gtk_editable_set_text(GTK_EDITABLE(entry_replace), "");
 #else
 		entry_replace = gtk_entry_new();
-		 gtk_widget_set_hexpand(entry_replace, TRUE);
-		 gtk_grid_attach(GTK_GRID(grid), entry_replace, 1, 1, 1, 1);
-		 gtk_label_set_mnemonic_widget(GTK_LABEL(label_replace), entry_replace);
-		 if (string_replace)
-			 gtk_editable_set_text(GTK_EDITABLE(entry_replace), string_replace);
-	}
-	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
-	gtk_entry_set_activates_default(GTK_ENTRY(entry_find), TRUE);
-	if (mode)
+		gtk_widget_set_hexpand(entry_replace, TRUE);
+		gtk_grid_attach(GTK_GRID(grid), entry_replace, 1, 1, 1, 1);
+		gtk_label_set_mnemonic_widget(GTK_LABEL(label_replace), entry_replace);
+		if (string_replace)
+			gtk_editable_set_text(GTK_EDITABLE(entry_replace), string_replace);
 #endif
-		gtk_entry_set_activates_default(GTK_ENTRY(entry_replace), TRUE);
+	}
+
+	check_case = gtk_check_button_new_with_mnemonic(_("_Match case"));
+	gtk_check_button_set_active(GTK_CHECK_BUTTON(check_case), match_case);
+	g_signal_connect(check_case, "toggled", G_CALLBACK(toggle_check_case), NULL);
+	gtk_grid_attach(GTK_GRID(grid), check_case, 0, 1 + mode, 2, 1);
+
+	if (mode) {
+		check_all = gtk_check_button_new_with_mnemonic(_("Replace _all at once"));
+		gtk_check_button_set_active(GTK_CHECK_BUTTON(check_all), replace_all);
+		g_signal_connect(check_all, "toggled", G_CALLBACK(toggle_check_all), NULL);
+		gtk_grid_attach(GTK_GRID(grid), check_all, 0, 2 + mode, 2, 1);
+	}
+
+	/* Action buttons */
+	button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+	gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+	gtk_box_append(GTK_BOX(content_box), button_box);
+
+	cancel_button = gtk_button_new_with_mnemonic(_("_Cancel"));
+	gtk_box_append(GTK_BOX(button_box), cancel_button);
+
+	if (mode)
+		ok_button = gtk_button_new_with_mnemonic(_("Find and _Replace"));
+	else
+		ok_button = gtk_button_new_with_mnemonic(_("_Find"));
+	gtk_widget_add_css_class(ok_button, "suggested-action");
+	gtk_box_append(GTK_BOX(button_box), ok_button);
+	search_ok_button = ok_button;
+
+	/* Sensitivity tracking for the OK button */
+#if !SEARCH_HISTORY
+	gtk_widget_set_sensitive(ok_button, FALSE);
+	entry_len = 0;
+	g_signal_connect(G_OBJECT(entry_find), "insert-text",
+		G_CALLBACK(toggle_sensitivity), NULL);
+	g_signal_connect(G_OBJECT(entry_find), "delete-text",
+		G_CALLBACK(toggle_sensitivity), NULL);
+	if (string_find) {
+		gtk_editable_set_text(GTK_EDITABLE(entry_find), string_find);
+		gtk_widget_set_sensitive(ok_button, TRUE);
+	}
+#endif
+#if SEARCH_HISTORY
+	g_signal_connect_after(G_OBJECT(entry_find), "insert-text",
+		G_CALLBACK(toggle_sensitivity), NULL);
+	g_signal_connect_after(G_OBJECT(entry_find), "delete-text",
+		G_CALLBACK(toggle_sensitivity), NULL);
+	buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
+	if (gtk_text_buffer_get_selection_bounds(buffer, &start_iter, &end_iter)) {
+		if (string_find != NULL)
+			g_free(string_find);
+		string_find = gtk_text_buffer_get_text(buffer, &start_iter, &end_iter,
+			FALSE);
+		gtk_editable_set_text(GTK_EDITABLE(entry_find), string_find);
+		gtk_widget_set_sensitive(ok_button, TRUE);
+	} else
+		gtk_editable_set_text(GTK_EDITABLE(entry_find), "");
+	toggle_sensitivity(entry_find);
+#endif
 
 #if !SEARCH_HISTORY
-	check_case = gtk_check_button_new_with_mnemonic(_("_Match case"));
-	 gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_case), match_case);
-	 g_signal_connect(check_case, "toggled", G_CALLBACK(toggle_check_case), NULL);
-	 gtk_grid_attach(GTK_GRID(grid), check_case, 0, 1 + mode, 2, 1);
-	if (mode) {
+	gtk_entry_set_activates_default(GTK_ENTRY(entry_find), TRUE);
+#else
+	gtk_entry_set_activates_default(GTK_ENTRY(entry_find), TRUE);
 #endif
-	check_all = gtk_check_button_new_with_mnemonic(_("Replace _all at once"));
-	 gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_all), replace_all);
-	 g_signal_connect(check_all, "toggled", G_CALLBACK(toggle_check_all), NULL);
-	 gtk_grid_attach(GTK_GRID(grid), check_all, 0, 2 + mode, 2, 1);
-	}
-#if SEARCH_HISTORY
-	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
-	toggle_sensitivity (entry_find);
-	check_case = gtk_check_button_new_with_mnemonic(_("_Match case"));
-	 gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_case), match_case);
-	 g_signal_connect(check_case, "toggled", G_CALLBACK(toggle_check_case), NULL);
-	 gtk_grid_attach(GTK_GRID(grid), check_case, 0, 1 + mode, 2, 1);
-#endif
-	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
+	if (mode && entry_replace)
+		gtk_entry_set_activates_default(GTK_ENTRY(entry_replace), TRUE);
 
-	/* TODO: convert to async dialog API in a future cleanup pass */
-	res = run_dialog_sync(GTK_DIALOG(dialog));
-	if (res == GTK_RESPONSE_OK) {
+	/* Sync-loop plumbing */
+	data.loop = g_main_loop_new(NULL, FALSE);
+	data.accepted = FALSE;
+
+	g_signal_connect_swapped(cancel_button, "clicked",
+		G_CALLBACK(g_main_loop_quit), data.loop);
+	g_signal_connect_swapped(dialog, "close-request",
+		G_CALLBACK(g_main_loop_quit), data.loop);
+	g_signal_connect(ok_button, "clicked",
+		G_CALLBACK(on_search_accept), &data);
+
+	gtk_window_set_default_widget(GTK_WINDOW(dialog), ok_button);
+	gtk_window_present(GTK_WINDOW(dialog));
+	g_main_loop_run(data.loop);
+	g_main_loop_unref(data.loop);
+
+	if (data.accepted) {
 #if SEARCH_HISTORY
-		update_combo_data (entry_find, &find_history);
+		update_combo_data(entry_find, &find_history);
 		if (string_find != NULL)
 #endif
 		g_free(string_find);
 		string_find = g_strdup(gtk_editable_get_text(GTK_EDITABLE(entry_find)));
 		if (mode) {
 #if SEARCH_HISTORY
-			update_combo_data (entry_replace, &replace_history);
+			update_combo_data(entry_replace, &replace_history);
 			if (string_replace != NULL)
 #endif
 			g_free(string_replace);
@@ -453,8 +480,9 @@ gint run_dialog_search(GtkWidget *textview, gint mode)
 	}
 
 	gtk_window_destroy(GTK_WINDOW(dialog));
+	search_ok_button = NULL;
 
-	if (res == GTK_RESPONSE_OK) {
+	if (data.accepted) {
 		if (strlen(string_find)) {
 			if (mode)
 				document_replace_real(textview);
@@ -463,7 +491,7 @@ gint run_dialog_search(GtkWidget *textview, gint mode)
 		}
 	}
 
-	return res;
+	return data.accepted;
 }
 
 typedef struct {

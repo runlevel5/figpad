@@ -21,7 +21,7 @@
 #define _SEARCH_H
 
 gboolean document_search_real(GtkWidget *textview, gint direction);
-gint run_dialog_search(GtkWidget *textview, gint mode);
+gboolean run_dialog_search(GtkWidget *textview, gint mode);
 void run_dialog_jump_to(GtkWidget *textview);
 
 #endif /* _SEARCH_H */
