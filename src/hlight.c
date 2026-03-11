@@ -19,7 +19,6 @@
 
 #include <string.h>
 #include "figpad.h"
-//#include <gtk/gtk.h>
 
 static gboolean searched_flag = FALSE;
 
@@ -28,25 +27,33 @@ static void cb_changed(GtkTextBuffer *buffer)
 	GtkTextIter start, end;
 
 	gtk_text_buffer_get_bounds(buffer, &start, &end);
-//	gtk_text_buffer_remove_tag_by_name(buffer,
-//		"searched", &start, &end);
 	gtk_text_buffer_remove_all_tags(buffer, &start, &end);
 	g_signal_handlers_block_by_func(G_OBJECT(buffer),
 		G_CALLBACK(cb_changed), NULL);
 	searched_flag = FALSE;
 }
 
-static void cb_paste_clipboard(void)
+/*
+ * cb_paste_clipboard_finish: async callback that receives the clipboard text
+ * and re-sets it as plain text (strips any rich formatting).
+ */
+static void cb_paste_clipboard_finish(GObject *source, GAsyncResult *res, gpointer user_data)
 {
-	gchar *text;
+	(void)user_data;
+	GdkClipboard *clipboard = GDK_CLIPBOARD(source);
+	char *text = gdk_clipboard_read_text_finish(clipboard, res, NULL);
 
-	text = gtk_clipboard_wait_for_text(
-		gtk_clipboard_get(GDK_SELECTION_CLIPBOARD));
 	if (text) {
-		gtk_clipboard_set_text(gtk_clipboard_get(GDK_SELECTION_CLIPBOARD),
-			text, -1);
+		gdk_clipboard_set_text(clipboard, text);
 		g_free(text);
 	}
+}
+
+static void cb_paste_clipboard(void)
+{
+	GdkClipboard *clipboard = gdk_display_get_clipboard(gdk_display_get_default());
+
+	gdk_clipboard_read_text_async(clipboard, NULL, cb_paste_clipboard_finish, NULL);
 }
 
 gboolean hlight_check_searched(void)
