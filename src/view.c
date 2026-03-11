@@ -61,12 +61,12 @@ gint check_text_modification(void)
 		basename = get_file_basename(pub->fi->filename, FALSE);
 		str = g_strdup_printf(_("Save changes to '%s'?"), basename);
 		g_free(basename);
-		res = run_dialog_message_question(pub->mw->window, str);
+		res = run_dialog_question_sync(pub->mw->window, str);
 		g_free(str);
 		switch (res) {
-		case GTK_RESPONSE_NO:
+		case QUESTION_RESPONSE_NO:
 			return 0;
-		case GTK_RESPONSE_YES:
+		case QUESTION_RESPONSE_YES:
 			if (!on_file_save())
 				return 0;
 		}
