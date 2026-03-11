@@ -376,8 +376,10 @@ GtkWidget *create_text_view(void)
 	view = gtk_text_view_new();
 	buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
 
-//	gtk_text_view_set_left_margin(GTK_TEXT_VIEW(view), 1);
-//	gtk_text_view_set_right_margin(GTK_TEXT_VIEW(view), 1);
+	gtk_text_view_set_left_margin(GTK_TEXT_VIEW(view), 8);
+	gtk_text_view_set_right_margin(GTK_TEXT_VIEW(view), 8);
+	gtk_text_view_set_top_margin(GTK_TEXT_VIEW(view), 4);
+	gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(view), 4);
 
 	/* GTK4: use GtkEventControllerKey instead of key-press-event signal */
 	key_controller = gtk_event_controller_key_new();
