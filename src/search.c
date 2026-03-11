@@ -137,7 +137,6 @@ static gint document_replace_real(GtkWidget *textview)
 	GtkTextMark *mark_init = NULL;
 	gboolean res;
 	gint num = 0, offset;
-	GtkWidget *q_dialog = NULL;
 	GtkSourceSearchFlags search_flags = GTK_SOURCE_SEARCH_VISIBLE_ONLY | GTK_SOURCE_SEARCH_TEXT_ONLY;
 	GtkTextBuffer *textbuffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview));
 
@@ -177,19 +176,15 @@ static gint document_replace_real(GtkWidget *textview)
 
 		if (res) {
 			if (!replace_all) {
-				if (num == 0 && q_dialog == NULL)
-					/* TODO: convert to async dialog API in a future cleanup pass */
-					q_dialog = create_dialog_message_question(
-						GTK_WIDGET(gtk_widget_get_root(textview)), _("Replace?"));
-					GtkTextIter ins,bou;
-					gtk_text_buffer_get_selection_bounds(textbuffer, &ins, &bou);
-				switch (run_dialog_sync(GTK_DIALOG(q_dialog))) {
-				case GTK_RESPONSE_YES:
+				GtkTextIter ins,bou;
+				gtk_text_buffer_get_selection_bounds(textbuffer, &ins, &bou);
+				switch (run_dialog_question_sync(
+					GTK_WIDGET(gtk_widget_get_root(textview)), _("Replace?"))) {
+				case QUESTION_RESPONSE_YES:
 					gtk_text_buffer_select_range(textbuffer, &ins, &bou);
 					break;
-				case GTK_RESPONSE_NO:
+				case QUESTION_RESPONSE_NO:
 					continue;
-//				case GTK_RESPONSE_CANCEL:
 				default:
 					res = 0;
 					if (num == 0)
@@ -233,12 +228,6 @@ static gint document_replace_real(GtkWidget *textview)
 	if (!hlight_check_searched())
 		hlight_toggle_searched(textbuffer);
 
-	if (q_dialog)
-		gtk_window_destroy(GTK_WINDOW(q_dialog));
-/*	if (strlen(string_replace)) {
-		replace_mode = TRUE;
-		hlight_searched_strings(textbuffer, string_replace);
-	}	*/
 	if (replace_all) {
 		gtk_text_buffer_get_iter_at_mark(textbuffer, &iter, mark_init);
 		gtk_text_buffer_place_cursor(textbuffer, &iter);

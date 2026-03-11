@@ -24,5 +24,11 @@ gint run_dialog_sync(GtkDialog *dialog);
 void run_dialog_message(GtkWidget *window, GtkMessageType type, gchar *message, ...);
 GtkWidget *create_dialog_message_question(GtkWidget *window, gchar *message, ...);
 gint run_dialog_message_question(GtkWidget *window, gchar *message, ...);
+gint run_dialog_question_sync(GtkWidget *window, gchar *message, ...);
+
+/* Button indices returned by run_dialog_question_sync() */
+#define QUESTION_RESPONSE_NO     0
+#define QUESTION_RESPONSE_CANCEL 1
+#define QUESTION_RESPONSE_YES    2
 
 #endif /* _DIALOG_H */

@@ -106,6 +106,55 @@ GtkWidget *create_dialog_message_question(GtkWidget *window, gchar *message, ...
 	return dialog;
 }
 
+typedef struct {
+	GMainLoop *loop;
+	gint chosen;
+} QuestionSyncData;
+
+static void on_question_sync_response(GObject *source, GAsyncResult *result,
+	gpointer user_data)
+{
+	QuestionSyncData *data = user_data;
+	data->chosen = gtk_alert_dialog_choose_finish(
+		GTK_ALERT_DIALOG(source), result, NULL);
+	g_main_loop_quit(data->loop);
+}
+
+/*
+ * QUESTION_RESPONSE_NO      = 0
+ * QUESTION_RESPONSE_CANCEL  = 1
+ * QUESTION_RESPONSE_YES     = 2
+ * Returns -1 on error / dialog dismissed.
+ */
+gint run_dialog_question_sync(GtkWidget *window, gchar *message, ...)
+{
+	va_list ap;
+	gchar *str;
+	GtkAlertDialog *alert;
+	QuestionSyncData data;
+
+	va_start(ap, message);
+		str = g_strdup_vprintf(message, ap);
+	va_end(ap);
+
+	alert = gtk_alert_dialog_new("%s", str);
+	gtk_alert_dialog_set_buttons(alert,
+		(const char *[]){ _("_No"), _("_Cancel"), _("_Yes"), NULL });
+	gtk_alert_dialog_set_default_button(alert, 2);
+	gtk_alert_dialog_set_cancel_button(alert, 1);
+	g_free(str);
+
+	data.loop = g_main_loop_new(NULL, FALSE);
+	data.chosen = -1;
+	gtk_alert_dialog_choose(alert, GTK_WINDOW(window), NULL,
+		on_question_sync_response, &data);
+	g_main_loop_run(data.loop);
+	g_main_loop_unref(data.loop);
+	g_object_unref(alert);
+
+	return data.chosen;
+}
+
 gint run_dialog_message_question(GtkWidget *window, gchar *message, ...)
 {
 	va_list ap;
