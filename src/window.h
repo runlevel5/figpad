@@ -22,12 +22,12 @@
 
 typedef struct {
 	GtkWidget *window;
-	GtkUIManager *menubar;
+	GtkWidget *menubar;
 	GtkWidget *view;
 	GtkTextBuffer *buffer;
 } MainWin;
 
-MainWin *create_main_window(void);
+MainWin *create_main_window(GtkApplication *app);
 void set_main_window_title(void);
 
 #endif /* _WINDOW_H */

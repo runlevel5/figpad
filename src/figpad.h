@@ -70,6 +70,7 @@
 typedef struct {
 	FileInfo *fi;
 	MainWin *mw;
+	GtkApplication *app;
 } PublicData;
 
 #ifndef _FIGPAD_MAIN

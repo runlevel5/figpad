@@ -18,47 +18,48 @@
  */
 
 #include "figpad.h"
-/*
-static void cb_scroll_event(GtkAdjustment *adj, GtkWidget *view)
+
+static gboolean on_close_request(GtkWindow *window, gpointer data)
 {
-	gtk_text_view_place_cursor_onscreen(GTK_TEXT_VIEW(view));
+	(void)window; (void)data;
+	on_file_quit();
+	/* always return TRUE to prevent default destroy — on_file_quit()
+	 * calls g_application_quit() if the user confirms */
+	return TRUE;
 }
-*/
-MainWin *create_main_window(void)
+
+MainWin *create_main_window(GtkApplication *app)
 {
 	GtkWidget *vbox;
 	GtkWidget *sw;
 
 	MainWin *mw = g_malloc(sizeof(MainWin));
 
-	mw->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	mw->window = gtk_application_window_new(app);
 	gtk_widget_set_name(mw->window, PACKAGE_NAME);
 
-	gtk_window_set_icon_from_file(GTK_WINDOW(mw->window), ICONDIR"/figpad.png", NULL);
-	gtk_window_set_default_icon_name(PACKAGE);
+	/* GTK4 removed gtk_window_set_icon_from_file(); use themed icon via
+	 * gtk_window_set_default_icon_name() set in main.c instead */
 
-	g_signal_connect(G_OBJECT(mw->window), "delete-event",
-		G_CALLBACK(on_file_quit), NULL);
-	g_signal_connect_after(G_OBJECT(mw->window), "delete-event",
-		G_CALLBACK(gtk_widget_hide_on_delete), NULL);
+	g_signal_connect(mw->window, "close-request",
+		G_CALLBACK(on_close_request), NULL);
 
 	vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-	gtk_container_add(GTK_CONTAINER(mw->window), vbox);
+	gtk_window_set_child(GTK_WINDOW(mw->window), vbox);
 
-	mw->menubar = create_menu_bar(mw->window);
-	gtk_box_pack_start(GTK_BOX(vbox), gtk_ui_manager_get_widget(mw->menubar, "/M"), FALSE, FALSE, 0);
+	mw->menubar = create_menu_bar(GTK_WINDOW(mw->window), app);
+	gtk_box_append(GTK_BOX(vbox), mw->menubar);
 
-	sw = gtk_scrolled_window_new(NULL, NULL);
-	gtk_widget_set_hexpand (sw, TRUE);
-	gtk_widget_set_vexpand (sw, TRUE);
+	sw = gtk_scrolled_window_new();
+	gtk_widget_set_hexpand(sw, TRUE);
+	gtk_widget_set_vexpand(sw, TRUE);
 	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(sw),
 		GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
-	gtk_scrolled_window_set_shadow_type(GTK_SCROLLED_WINDOW(sw),
-		GTK_SHADOW_IN);
-	gtk_box_pack_start(GTK_BOX(vbox), sw, TRUE, TRUE, 0);
+	/* GTK4 removed gtk_scrolled_window_set_shadow_type() */
+	gtk_box_append(GTK_BOX(vbox), sw);
 
 	mw->view = create_text_view();
-	gtk_container_add(GTK_CONTAINER(sw), mw->view);
+	gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(sw), mw->view);
 	mw->buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(mw->view));
 
 	return mw;
