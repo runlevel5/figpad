@@ -334,58 +334,105 @@ static GtkWidget *create_charset_menu(FileInfo *selected_fi)
 	return dropdown;
 }
 
-static GtkWidget *create_file_selector(FileInfo *selected_fi)
+typedef struct {
+	GMainLoop *loop;
+	gboolean accepted;
+	FileInfo *selected_fi;
+	GtkWidget *dialog;
+} FileSelectorData;
+
+static void on_file_dialog_open_finish(GObject *source, GAsyncResult *result,
+	gpointer user_data)
 {
-	GtkWidget *selector;
-	GtkWidget *table;
-	GtkWidget *label;
-	GtkWidget *option_menu_charset;
-	GtkWidget *option_menu_lineend;
-	const gchar *title;
+	FileSelectorData *data = user_data;
+	GtkFileDialog *fd = GTK_FILE_DIALOG(source);
+	GFile *gfile = gtk_file_dialog_open_finish(fd, result, NULL);
 
-	title = mode ? _("Open") : _("Save As");
-
-	selector = gtk_file_chooser_dialog_new(title, NULL,
-		mode ? GTK_FILE_CHOOSER_ACTION_OPEN : GTK_FILE_CHOOSER_ACTION_SAVE,
-		_("_Cancel"), GTK_RESPONSE_CANCEL,
-		mode ? _("_Open") : _("_Save As"), GTK_RESPONSE_OK,
-		NULL);
-	gtk_dialog_set_default_response(GTK_DIALOG(selector), GTK_RESPONSE_OK);
-
-	/* Pack charset/lineend controls into the dialog content area
-	 * (gtk_file_chooser_set_extra_widget was removed in GTK4) */
-	table = gtk_grid_new();
-	gtk_widget_set_halign(table, GTK_ALIGN_END);
-	gtk_widget_set_margin_start(table, 8);
-	gtk_widget_set_margin_end(table, 8);
-	gtk_widget_set_margin_bottom(table, 8);
-	option_menu_charset = create_charset_menu(selected_fi);
-	label = gtk_label_new_with_mnemonic(_("C_haracter Coding:"));
-	gtk_label_set_mnemonic_widget(GTK_LABEL(label), option_menu_charset);
-	gtk_grid_attach(GTK_GRID(table), label, 0, 0, 1, 1);
-	gtk_grid_set_column_spacing(GTK_GRID(table), 8);
-	gtk_grid_attach(GTK_GRID(table), option_menu_charset, 1, 0, 1, 1);
-	if (mode == SAVE) {
-		option_menu_lineend = create_lineend_menu(selected_fi);
-		gtk_grid_attach(GTK_GRID(table), option_menu_lineend, 2, 0, 1, 1);
+	if (gfile) {
+		g_free(data->selected_fi->filename);
+		data->selected_fi->filename = g_file_get_path(gfile);
+		g_object_unref(gfile);
+		data->accepted = TRUE;
+		g_main_loop_quit(data->loop);
 	}
-	gtk_box_append(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(selector))), table);
+	/* If cancelled, stay in the options dialog — user can retry or cancel */
+}
 
-	if (selected_fi->filename) {
-		GFile *file = g_file_new_for_path(selected_fi->filename);
-		gtk_file_chooser_set_file(GTK_FILE_CHOOSER(selector), file, NULL);
+static void on_file_dialog_save_finish(GObject *source, GAsyncResult *result,
+	gpointer user_data)
+{
+	FileSelectorData *data = user_data;
+	GtkFileDialog *fd = GTK_FILE_DIALOG(source);
+	GFile *gfile = gtk_file_dialog_save_finish(fd, result, NULL);
+
+	if (gfile) {
+		g_free(data->selected_fi->filename);
+		data->selected_fi->filename = g_file_get_path(gfile);
+		g_object_unref(gfile);
+		data->accepted = TRUE;
+		g_main_loop_quit(data->loop);
+	}
+}
+
+static void on_browse_clicked(GtkWidget *widget, gpointer user_data)
+{
+	(void)widget;
+	FileSelectorData *data = user_data;
+	GtkFileDialog *fd = gtk_file_dialog_new();
+
+	gtk_file_dialog_set_title(fd,
+		mode ? _("Open") : _("Save As"));
+	gtk_file_dialog_set_modal(fd, TRUE);
+
+	if (data->selected_fi->filename) {
+		GFile *file = g_file_new_for_path(data->selected_fi->filename);
+		if (mode == OPEN) {
+			/* For open, set the initial folder to the file's parent */
+			GFile *folder = g_file_get_parent(file);
+			if (folder) {
+				gtk_file_dialog_set_initial_folder(fd, folder);
+				g_object_unref(folder);
+			}
+			gtk_file_dialog_set_initial_name(fd,
+				g_file_get_basename(file));
+		} else {
+			/* For save, set initial file directly */
+			GFile *folder = g_file_get_parent(file);
+			if (folder) {
+				gtk_file_dialog_set_initial_folder(fd, folder);
+				g_object_unref(folder);
+			}
+			gtk_file_dialog_set_initial_name(fd,
+				g_file_get_basename(file));
+		}
 		g_object_unref(file);
 	}
 
-	return selector;
+	if (mode == OPEN) {
+		gtk_file_dialog_open(fd,
+			GTK_WINDOW(data->dialog), NULL,
+			on_file_dialog_open_finish, data);
+	} else {
+		gtk_file_dialog_save(fd,
+			GTK_WINDOW(data->dialog), NULL,
+			on_file_dialog_save_finish, data);
+	}
+	g_object_unref(fd);
 }
 
 FileInfo *get_fileinfo_from_selector(FileInfo *fi, gint requested_mode)
 {
 	FileInfo *selected_fi;
-	GtkWidget *selector;
-	gchar *basename, *str;
-	gint res, len;
+	GtkWidget *dialog;
+	GtkWidget *content_box;
+	GtkWidget *grid;
+	GtkWidget *label;
+	GtkWidget *option_menu_charset;
+	GtkWidget *option_menu_lineend;
+	GtkWidget *button_box;
+	GtkWidget *cancel_button;
+	GtkWidget *browse_button;
+	FileSelectorData data;
 
 	/* init values */
 	mode = requested_mode;
@@ -397,64 +444,82 @@ FileInfo *get_fileinfo_from_selector(FileInfo *fi, gint requested_mode)
 	selected_fi->charset_flag = fi->charset_flag;
 	selected_fi->lineend = fi->lineend;
 
-	selector = create_file_selector(selected_fi);
-	gtk_window_set_transient_for(GTK_WINDOW(selector),
+	/* Plain GtkWindow with charset/lineend options + Browse button */
+	dialog = gtk_window_new();
+	gtk_window_set_title(GTK_WINDOW(dialog),
+		mode ? _("Open") : _("Save As"));
+	gtk_window_set_transient_for(GTK_WINDOW(dialog),
 		GTK_WINDOW(pub->mw->window));
+	gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
+	gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
 
-	do {
-		/* TODO: convert to async dialog API in a future cleanup pass */
-		res = run_dialog_sync(GTK_DIALOG(selector));
-		if (res == GTK_RESPONSE_OK) {
-			if (selected_fi->filename)
-				g_free(selected_fi->filename);
+	content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+	gtk_widget_set_margin_start(content_box, 12);
+	gtk_widget_set_margin_end(content_box, 12);
+	gtk_widget_set_margin_top(content_box, 12);
+	gtk_widget_set_margin_bottom(content_box, 12);
+	gtk_window_set_child(GTK_WINDOW(dialog), content_box);
 
-			{
-				GFile *gfile = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(selector));
-				selected_fi->filename = gfile ? g_file_get_path(gfile) : NULL;
-				if (gfile)
-					g_object_unref(gfile);
-			}
+	grid = gtk_grid_new();
+	gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+	gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+	gtk_box_append(GTK_BOX(content_box), grid);
 
-			if (selected_fi->filename && g_file_test(selected_fi->filename, G_FILE_TEST_IS_DIR)) {
-				len = strlen(selected_fi->filename);
-				if (len < 1 || selected_fi->filename[len - 1] != G_DIR_SEPARATOR)
-					str = g_strconcat(selected_fi->filename, G_DIR_SEPARATOR_S, NULL);
-				else
-					str = g_strdup(selected_fi->filename);
-				{
-					GFile *dir_file = g_file_new_for_path(str);
-					gtk_file_chooser_set_file(GTK_FILE_CHOOSER(selector), dir_file, NULL);
-					g_object_unref(dir_file);
-				}
-				g_free(str);
-				continue;
-			}
-			if ((mode == SAVE) && selected_fi->filename &&
-			    g_file_test(selected_fi->filename, G_FILE_TEST_EXISTS)) {
-				basename = g_path_get_basename(selected_fi->filename);
-				str = g_strdup_printf(_("'%s' already exists. Overwrite?"), basename);
-				g_free(basename);
-				res = run_dialog_message_question(selector, str);
-				g_free(str);
-				switch (res) {
-				case GTK_RESPONSE_NO:
-					continue;
-				case GTK_RESPONSE_YES:
-					res = GTK_RESPONSE_OK;
-				}
-			}
-		}
-		gtk_widget_set_visible(selector, FALSE);
-	} while (gtk_widget_get_visible(selector));
+	option_menu_charset = create_charset_menu(selected_fi);
+	label = gtk_label_new_with_mnemonic(_("C_haracter Coding:"));
+	gtk_widget_set_halign(label, GTK_ALIGN_START);
+	gtk_label_set_mnemonic_widget(GTK_LABEL(label), option_menu_charset);
+	gtk_grid_attach(GTK_GRID(grid), label, 0, 0, 1, 1);
+	gtk_grid_attach(GTK_GRID(grid), option_menu_charset, 1, 0, 1, 1);
 
-	if (res != GTK_RESPONSE_OK) {
-		if (selected_fi->charset)
-			g_free(selected_fi->charset);
-		selected_fi = NULL;
-		g_free(selected_fi);
+	if (mode == SAVE) {
+		option_menu_lineend = create_lineend_menu(selected_fi);
+		label = gtk_label_new_with_mnemonic(_("Line _Ending:"));
+		gtk_widget_set_halign(label, GTK_ALIGN_START);
+		gtk_grid_attach(GTK_GRID(grid), label, 0, 1, 1, 1);
+		gtk_grid_attach(GTK_GRID(grid), option_menu_lineend, 1, 1, 1, 1);
 	}
 
-	gtk_window_destroy(GTK_WINDOW(selector));
+	/* Action buttons */
+	button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+	gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+	gtk_box_append(GTK_BOX(content_box), button_box);
+
+	cancel_button = gtk_button_new_with_mnemonic(_("_Cancel"));
+	gtk_box_append(GTK_BOX(button_box), cancel_button);
+
+	browse_button = gtk_button_new_with_mnemonic(
+		mode ? _("_Open...") : _("_Save As..."));
+	gtk_widget_add_css_class(browse_button, "suggested-action");
+	gtk_box_append(GTK_BOX(button_box), browse_button);
+
+	/* Sync-loop plumbing */
+	data.loop = g_main_loop_new(NULL, FALSE);
+	data.accepted = FALSE;
+	data.selected_fi = selected_fi;
+	data.dialog = dialog;
+
+	g_signal_connect_swapped(cancel_button, "clicked",
+		G_CALLBACK(g_main_loop_quit), data.loop);
+	g_signal_connect_swapped(dialog, "close-request",
+		G_CALLBACK(g_main_loop_quit), data.loop);
+	g_signal_connect(browse_button, "clicked",
+		G_CALLBACK(on_browse_clicked), &data);
+
+	gtk_window_set_default_widget(GTK_WINDOW(dialog), browse_button);
+	gtk_window_present(GTK_WINDOW(dialog));
+	g_main_loop_run(data.loop);
+	g_main_loop_unref(data.loop);
+
+	if (!data.accepted) {
+		if (selected_fi->charset)
+			g_free(selected_fi->charset);
+		g_free(selected_fi);
+		selected_fi = NULL;
+	}
+
+	gtk_window_destroy(GTK_WINDOW(dialog));
 
 	return selected_fi;
 }
