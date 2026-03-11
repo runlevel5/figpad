@@ -33,13 +33,88 @@ static GSimpleAction *action_find_prev;
 static GActionMap *win_action_map;
 
 /*
+ * After a menu action fires the GtkPopoverMenuBar popover keeps focus until
+ * its close animation finishes.  A plain gtk_widget_grab_focus() on the text
+ * view may be a no-op if GTK still considers the view "focused" (same
+ * toplevel), so the IM context never gets its focus_in call and typing
+ * appears dead.
+ *
+ * Work-around: first move focus away to the menu bar, then immediately move
+ * it to the text view.  This forces a real focus-leave / focus-enter cycle
+ * on the GtkTextView, which makes GTK call gtk_im_context_focus_in()
+ * internally so that keyboard input works again.
+ */
+static gboolean refocus_textview_timeout(gpointer data)
+{
+	(void)data;
+	/* Force a focus transition: menubar -> textview */
+	gtk_widget_grab_focus(pub->mw->menubar);
+	gtk_widget_grab_focus(pub->mw->view);
+	return G_SOURCE_REMOVE;
+}
+
+static void schedule_refocus(void)
+{
+	g_timeout_add(50, refocus_textview_timeout, NULL);
+}
+
+/*
+ * When the user clicks a menu title and then dismisses the popover without
+ * choosing an action, focus stays somewhere in the menu bar widget tree and
+ * the text view's IM context is not active — typing appears dead.
+ *
+ * Work-around: install a key-press controller on the window in the CAPTURE
+ * phase.  If a non-modifier key arrives while the text view does not have
+ * focus, force a focus transition to the text view and let the event
+ * propagate normally.  The text view's IM context will be re-activated
+ * by the focus-enter and will process the key.
+ */
+static gboolean
+on_window_key_capture(GtkEventControllerKey *ctl,
+                      guint keyval, guint keycode,
+                      GdkModifierType state, gpointer data)
+{
+	(void)ctl; (void)keycode; (void)state; (void)data;
+
+	/* Only intervene if the text view exists but doesn't have focus */
+	if (pub->mw->view == NULL)
+		return FALSE;
+	if (gtk_widget_has_focus(pub->mw->view))
+		return FALSE;
+
+	/*
+	 * Ignore bare modifier keys (Shift, Ctrl, Alt, Super) — they are
+	 * not text input and should not steal focus back.
+	 */
+	if (keyval == GDK_KEY_Shift_L   || keyval == GDK_KEY_Shift_R   ||
+	    keyval == GDK_KEY_Control_L  || keyval == GDK_KEY_Control_R  ||
+	    keyval == GDK_KEY_Alt_L      || keyval == GDK_KEY_Alt_R      ||
+	    keyval == GDK_KEY_Super_L    || keyval == GDK_KEY_Super_R    ||
+	    keyval == GDK_KEY_Meta_L     || keyval == GDK_KEY_Meta_R     ||
+	    keyval == GDK_KEY_Caps_Lock  || keyval == GDK_KEY_Num_Lock)
+		return FALSE;
+
+	/*
+	 * Force a focus transition so the text view's IM context gets its
+	 * focus_in call.  Move focus to the menubar first, then to the text
+	 * view, so GTK sees a genuine leave/enter cycle.
+	 */
+	gtk_widget_grab_focus(pub->mw->menubar);
+	gtk_widget_grab_focus(pub->mw->view);
+
+	/* Don't consume the event — let it propagate to the text view */
+	return FALSE;
+}
+
+/*
  * Wrappers that adapt void(void) callbacks to the GAction activate signature.
  * GSimpleAction "activate" passes (GSimpleAction *action, GVariant *param,
  * gpointer user_data), but our old callbacks take no arguments.
  */
 #define ACTION_CB(name, func) \
 static void action_##name(GSimpleAction *action, GVariant *param, gpointer data) \
-{ (void)action; (void)param; (void)data; func(); }
+{ (void)action; (void)param; (void)data; func(); \
+  schedule_refocus(); }
 
 ACTION_CB(file_new, on_file_new)
 ACTION_CB(file_open, on_file_open)
@@ -79,6 +154,7 @@ static void action_toggle_word_wrap(GSimpleAction *action, GVariant *param, gpoi
 	g_variant_unref(state);
 	g_simple_action_set_state(action, g_variant_new_boolean(active));
 	on_option_word_wrap();
+	schedule_refocus();
 }
 
 static void action_toggle_line_numbers(GSimpleAction *action, GVariant *param, gpointer data)
@@ -89,6 +165,7 @@ static void action_toggle_line_numbers(GSimpleAction *action, GVariant *param, g
 	g_variant_unref(state);
 	g_simple_action_set_state(action, g_variant_new_boolean(active));
 	on_option_line_numbers();
+	schedule_refocus();
 }
 
 static void action_toggle_auto_indent(GSimpleAction *action, GVariant *param, gpointer data)
@@ -99,6 +176,7 @@ static void action_toggle_auto_indent(GSimpleAction *action, GVariant *param, gp
 	g_variant_unref(state);
 	g_simple_action_set_state(action, g_variant_new_boolean(active));
 	on_option_auto_indent();
+	schedule_refocus();
 }
 
 /* plain actions (no state) */
@@ -360,6 +438,17 @@ GtkWidget *create_menu_bar(GtkWindow *window, GtkApplication *app)
 	GMenuModel *model = build_menu_model();
 	GtkWidget *bar = gtk_popover_menu_bar_new_from_model(model);
 	g_object_unref(model);
+
+	/*
+	 * Install a key-press controller on the window (CAPTURE phase) to
+	 * reclaim focus for the text view whenever a non-modifier key is
+	 * pressed while the menu bar (or its popover) holds focus.
+	 */
+	GtkEventController *key_ctl = gtk_event_controller_key_new();
+	gtk_event_controller_set_propagation_phase(key_ctl, GTK_PHASE_CAPTURE);
+	g_signal_connect(key_ctl, "key-pressed",
+		G_CALLBACK(on_window_key_capture), NULL);
+	gtk_widget_add_controller(GTK_WIDGET(window), key_ctl);
 
 	return bar;
 }
