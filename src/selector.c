@@ -31,9 +31,10 @@ static gchar *lineend_str[] = {
 	"CR"
 };
 
-static void cb_select_lineend(GtkComboBox *option_menu, FileInfo *selected_fi)
+static void cb_select_lineend(GtkDropDown *dropdown, GParamSpec *pspec, FileInfo *selected_fi)
 {
-	switch (gtk_combo_box_get_active(option_menu)) {
+	(void)pspec;
+	switch (gtk_drop_down_get_selected(dropdown)) {
 	case 1:
 		selected_fi->lineend = CR+LF;
 		break;
@@ -47,33 +48,23 @@ static void cb_select_lineend(GtkComboBox *option_menu, FileInfo *selected_fi)
 
 static GtkWidget *create_lineend_menu(FileInfo *selected_fi)
 {
-	GtkListStore *store = gtk_list_store_new (1, G_TYPE_STRING);
-	GtkTreeIter iter;
-	GtkCellRenderer *renderer = gtk_cell_renderer_text_new ();
-	GtkWidget *option_menu = gtk_combo_box_new_with_model (GTK_TREE_MODEL (store));
-	gint i;
+	const char *items[] = { lineend_str[0], lineend_str[1], lineend_str[2], NULL };
+	GtkWidget *dropdown = gtk_drop_down_new_from_strings(items);
+	guint idx = 0;
 
-	for (i = 0; i <= 2; i++) {
-		gtk_list_store_append (store, &iter);
-		gtk_list_store_set (store, &iter, 0, lineend_str[i], -1);
-	}
-	gtk_cell_layout_pack_start (GTK_CELL_LAYOUT (option_menu), renderer, FALSE);
-	gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT (option_menu), renderer, "text", 0, NULL);
-
-	g_signal_connect(G_OBJECT(option_menu), "changed",
-		G_CALLBACK(cb_select_lineend), selected_fi);
-
-	i = 0;
 	switch (selected_fi->lineend) {
 	case CR+LF:
-		i = 1;
+		idx = 1;
 		break;
 	case CR:
-		i = 2;
+		idx = 2;
 	}
-	gtk_combo_box_set_active(GTK_COMBO_BOX(option_menu), i);
+	gtk_drop_down_set_selected(GTK_DROP_DOWN(dropdown), idx);
 
-	return option_menu;
+	g_signal_connect(dropdown, "notify::selected",
+		G_CALLBACK(cb_select_lineend), selected_fi);
+
+	return dropdown;
 }
 
 typedef struct {
