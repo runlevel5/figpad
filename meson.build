@@ -1,5 +1,5 @@
 project('figpad', 'c',
-  version: '0.8.18.1.11',
+  version: '0.1.0',
   meson_version: '>= 0.59',
   default_options: ['warning_level=1'],
 )
