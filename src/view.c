@@ -127,8 +127,8 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 	keyval = 0;
 //g_print("key-press-event: 0x%X\n", event->keyval);
 	switch (event->keyval) {
-	case GDK_Up:		// Try [Shift]+[Down]. it works bad.
-	case GDK_Down:
+	case GDK_KEY_Up:		// Try [Shift]+[Down]. it works bad.
+	case GDK_KEY_Down:
 		if (gtk_text_view_move_mark_onscreen(GTK_TEXT_VIEW(view), mark)) {
 			GdkRectangle iter_rect;
 			gtk_text_buffer_get_iter_at_mark(buffer, &iter, mark);
@@ -145,8 +145,8 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 			return TRUE;
 		}
 		break;
-	case GDK_Page_Up:
-	case GDK_Page_Down:
+	case GDK_KEY_Page_Up:
+	case GDK_KEY_Page_Down:
 		if (gtk_text_view_move_mark_onscreen(GTK_TEXT_VIEW(view), mark)) {
 			GdkRectangle visible_rect, iter_rect;
 			gint pos = 0;
@@ -155,7 +155,7 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 			gtk_text_view_get_iter_location(GTK_TEXT_VIEW(view), &iter, &iter_rect);
 			if (iter_rect.y < prev_rect.y)
 				pos = 1;
-			if (event->keyval == GDK_Page_Up)
+			if (event->keyval == GDK_KEY_Page_Up)
 				gtk_text_view_get_line_at_y(GTK_TEXT_VIEW(view), &iter,
 					iter_rect.y - visible_rect.height + iter_rect.height, NULL);
 			else
@@ -171,18 +171,18 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 			return TRUE;
 		}
 		break;
-	case GDK_Return:
+	case GDK_KEY_Return:
 		if (indent_get_state()) {
 			indent_real(view);
 			return TRUE;
 		}
 		break;
-	case GDK_Tab:
+	case GDK_KEY_Tab:
 		if (event->state & GDK_CONTROL_MASK) {
 			indent_toggle_tab_width(view);
 			return TRUE;
 		}
-	case GDK_ISO_Left_Tab:
+	case GDK_KEY_ISO_Left_Tab:
 		if (event->state & GDK_SHIFT_MASK)
 			indent_multi_line_unindent(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view)));
 		else if (!check_selection_bound(gtk_text_view_get_buffer(GTK_TEXT_VIEW(view))))
@@ -193,8 +193,8 @@ static gboolean cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 	}
 	keyval = event->keyval;
 	if ((event->state & GDK_CONTROL_MASK)
-		|| (event->keyval == GDK_Control_L)
-		|| (event->keyval == GDK_Control_R)) {
+		|| (event->keyval == GDK_KEY_Control_L)
+		|| (event->keyval == GDK_KEY_Control_R)) {
 		keyval = keyval + 0x10000;
 //g_print("=================================================\n");
 	}

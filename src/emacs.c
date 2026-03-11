@@ -18,7 +18,6 @@
  */
 
 #include "figpad.h"
-#include <gdk/gdkkeysyms.h>
 
 #if ENABLE_EMACS
 
@@ -26,8 +25,8 @@ static void cb_key_release_event(GtkWidget *view, GdkEventKey *event)
 {
 //g_print("key-release-event: 0x%X\n", event->keyval);
 	switch (event->keyval) {
-	case GDK_x:
-	case GDK_X:
+	case GDK_KEY_x:
+	case GDK_KEY_X:
 		gtk_main_quit();
 	}
 }
@@ -35,61 +34,61 @@ static void cb_key_release_event(GtkWidget *view, GdkEventKey *event)
 static void cb_key_press_event(GtkWidget *view, GdkEventKey *event)
 {
 //g_print("key-release-event: 0x%X\n", event->keyval);
-	if (event->keyval < 0x1000 || event->keyval == GDK_Escape) {
+	if (event->keyval < 0x1000 || event->keyval == GDK_KEY_Escape) {
 		switch (event->keyval) {
-		case GDK_f:
-		case GDK_F:
-		case GDK_v:
-		case GDK_V:
+		case GDK_KEY_f:
+		case GDK_KEY_F:
+		case GDK_KEY_v:
+		case GDK_KEY_V:
 			if (event->state & GDK_CONTROL_MASK)
 				on_file_open();
 			else
 				gdk_beep();
 			break;
-		case GDK_d:
-		case GDK_D:
+		case GDK_KEY_d:
+		case GDK_KEY_D:
 			if (event->state & GDK_CONTROL_MASK)
 				gdk_beep();
 			else
 				on_file_open();
 			break;
-		case GDK_s:
-		case GDK_S:
+		case GDK_KEY_s:
+		case GDK_KEY_S:
 			if (gtk_widget_is_sensitive(gtk_ui_manager_get_widget(
 				pub->mw->menubar, "/M/File/Save")
 				))
 				on_file_save();
 			break;
-		case GDK_w:
-		case GDK_W:
+		case GDK_KEY_w:
+		case GDK_KEY_W:
 			if (event->state & GDK_CONTROL_MASK)
 				on_file_save_as();
 			else
 				gdk_beep();
 			break;
-		case GDK_k:
-		case GDK_K:
+		case GDK_KEY_k:
+		case GDK_KEY_K:
 			if (event->state & GDK_CONTROL_MASK)
 				gdk_beep();
 			else
 				on_file_close();
 			break;
-		case GDK_c:
-		case GDK_C:
+		case GDK_KEY_c:
+		case GDK_KEY_C:
 			if (event->state & GDK_CONTROL_MASK)
 				on_file_quit();
 			else
 				gdk_beep();
 			break;
-		case GDK_u:
-		case GDK_U:
+		case GDK_KEY_u:
+		case GDK_KEY_U:
 			if (event->state & GDK_CONTROL_MASK)
 				gdk_beep();
 			else
 				on_edit_undo();
 			break;
-		case GDK_h:
-		case GDK_H:
+		case GDK_KEY_h:
+		case GDK_KEY_H:
 			if (event->state & GDK_CONTROL_MASK)
 				gdk_beep();
 			else
@@ -180,7 +179,7 @@ gboolean check_emacs_key_theme(GtkWindow *window, GtkUIManager *ifactory)
 		accel_group, GDK_Z, GDK_CONTROL_MASK);
 */	gtk_widget_add_accelerator(
 		gtk_ui_manager_get_widget(ifactory, "/M/Edit/Undo"),
-		"activate", accel_group, GDK_underscore, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+		"activate", accel_group, GDK_KEY_underscore, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 /*	gtk_widget_remove_accelerator(
 		gtk_ui_manager_get_widget(ifactory, "/M/Edit/SelectAll"),
 		accel_group, GDK_A, GDK_CONTROL_MASK);
@@ -189,28 +188,28 @@ gboolean check_emacs_key_theme(GtkWindow *window, GtkUIManager *ifactory)
 		accel_group, GDK_F, GDK_CONTROL_MASK);
 */	gtk_widget_add_accelerator(
 		gtk_ui_manager_get_widget(ifactory, "/M/Search/Find"),
-		"activate", accel_group, GDK_S, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+		"activate", accel_group, GDK_KEY_S, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 /*	gtk_widget_add_accelerator(
 		gtk_ui_manager_get_widget(ifactory, "/M/Search/FindNext"),
-		"activate", accel_group, GDK_S, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+		"activate", accel_group, GDK_KEY_S, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 */	gtk_widget_add_accelerator(
 		gtk_ui_manager_get_widget(ifactory, "/M/Search/FindPrevious"),
-		"activate", accel_group, GDK_R, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
+		"activate", accel_group, GDK_KEY_R, GDK_CONTROL_MASK, GTK_ACCEL_VISIBLE);
 /*	gtk_widget_remove_accelerator(
 		gtk_ui_manager_get_widget(ifactory, "/M/Search/Replace"),
 		accel_group, GDK_H, GDK_CONTROL_MASK);
 */	gtk_widget_add_accelerator(
 		gtk_ui_manager_get_widget(ifactory, "/M/Search/Replace"),
-		"activate", accel_group, GDK_percent, GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
+		"activate", accel_group, GDK_KEY_percent, GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
 /*	gtk_widget_remove_accelerator(
 		gtk_ui_manager_get_widget(ifactory, "/M/Search/JumpTo"),
 		accel_group, GDK_J, GDK_CONTROL_MASK);
 */	gtk_widget_add_accelerator(
 		gtk_ui_manager_get_widget(ifactory, "/M/Search/JumpTo"),
-		"activate", accel_group, GDK_G, GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
+		"activate", accel_group, GDK_KEY_G, GDK_MOD1_MASK, GTK_ACCEL_VISIBLE);
 
 	gtk_accel_group_connect(
-		accel_group, GDK_X, GDK_CONTROL_MASK, 0,
+		accel_group, GDK_KEY_X, GDK_CONTROL_MASK, 0,
 		g_cclosure_new_swap(G_CALLBACK(emacs_key_prefix), NULL, NULL));
 
 	gtk_window_add_accel_group(GTK_WINDOW(window), accel_group);
