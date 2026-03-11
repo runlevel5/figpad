@@ -198,7 +198,7 @@ static gboolean get_manual_charset(GtkComboBox *option_menu, FileInfo *selected_
 		g_convert("TEST", -1, "UTF-8", gtk_editable_get_text(GTK_EDITABLE(entry)), NULL, NULL, &err);
 		if (err) {
 			g_error_free(err);
-			gtk_widget_hide(dialog);
+			gtk_widget_set_visible(dialog, FALSE);
 			str = g_strdup_printf(_("'%s' is not supported"), gtk_editable_get_text(GTK_EDITABLE(entry)));
 			run_dialog_message(GTK_WIDGET(gtk_widget_get_root(GTK_WIDGET(option_menu))),
 				GTK_MESSAGE_ERROR, str);
@@ -407,7 +407,7 @@ FileInfo *get_fileinfo_from_selector(FileInfo *fi, gint requested_mode)
 				}
 			}
 		}
-		gtk_widget_hide(selector);
+		gtk_widget_set_visible(selector, FALSE);
 	} while (gtk_widget_get_visible(selector));
 
 	if (res != GTK_RESPONSE_OK) {
