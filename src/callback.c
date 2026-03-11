@@ -158,12 +158,6 @@ void on_file_stats(void)
 #endif
 
 #if ENABLE_PRINT
-void on_file_print_preview(void)
-{
-	create_gtkprint_preview_session(GTK_TEXT_VIEW(pub->mw->view),
-		get_file_basename(pub->fi->filename, FALSE));
-}
-
 void on_file_print(void)
 {
 	create_gtkprint_session(GTK_TEXT_VIEW(pub->mw->view),

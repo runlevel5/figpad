@@ -195,22 +195,3 @@ void create_gtkprint_session(GtkTextView *text_view, const gchar *title)
 
 	g_object_unref(op);
 }
-
-void create_gtkprint_preview_session(GtkTextView *text_view, const gchar *title)
-{
-	GtkPrintOperation *op;
-	GtkPrintOperationResult res;
-	GError *err = NULL;
-
-	page_title = title;
-	op = create_print_operation(text_view);
-
-	res = gtk_print_operation_run(op, GTK_PRINT_OPERATION_ACTION_PREVIEW,
-		GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(text_view))), &err);
-	if (res == GTK_PRINT_OPERATION_RESULT_ERROR) {
-		create_error_dialog(text_view, err->message);
-		g_error_free(err);
-	}
-
-	g_object_unref(op);
-}

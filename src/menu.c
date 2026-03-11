@@ -124,7 +124,6 @@ ACTION_CB(file_save_as, on_file_save_as)
 ACTION_CB(file_stats, on_file_stats)
 #endif
 #if ENABLE_PRINT
-ACTION_CB(file_print_preview, on_file_print_preview)
 ACTION_CB(file_print, on_file_print)
 #endif
 ACTION_CB(file_close, on_file_close)
@@ -189,7 +188,6 @@ static const GActionEntry win_actions[] = {
 	{ "statistics",     action_file_stats,        NULL, NULL, NULL },
 #endif
 #if ENABLE_PRINT
-	{ "print-preview",  action_file_print_preview, NULL, NULL, NULL },
 	{ "print",          action_file_print,        NULL, NULL, NULL },
 #endif
 	{ "close",          action_file_close,        NULL, NULL, NULL },
@@ -234,7 +232,6 @@ static GMenuModel *build_menu_model(void)
 	g_menu_append(file_section2, _("Sta_tistics..."), "win.statistics");
 #endif
 #if ENABLE_PRINT
-	g_menu_append(file_section2, _("Print Pre_view"), "win.print-preview");
 	g_menu_append(file_section2, _("_Print..."),      "win.print");
 #endif
 
@@ -395,7 +392,6 @@ GtkWidget *create_menu_bar(GtkWindow *window, GtkApplication *app)
 	const gchar *always_on_top_accels[] = { "<Control>t", NULL };
 #if ENABLE_PRINT
 	const gchar *print_accels[]         = { "<Control>p", NULL };
-	const gchar *print_preview_accels[] = { "<Shift><Control>p", NULL };
 #endif
 
 	gtk_application_set_accels_for_action(app, "win.new",           new_accels);
@@ -418,7 +414,6 @@ GtkWidget *create_menu_bar(GtkWindow *window, GtkApplication *app)
 	gtk_application_set_accels_for_action(app, "win.always-on-top", always_on_top_accels);
 #if ENABLE_PRINT
 	gtk_application_set_accels_for_action(app, "win.print",         print_accels);
-	gtk_application_set_accels_for_action(app, "win.print-preview", print_preview_accels);
 #endif
 
 	/* cache action pointers for sensitivity functions */
