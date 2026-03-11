@@ -1,5 +1,5 @@
 /*
- *  L3afpad - GTK+ based simple text editor
+ *  Figpad - GTK+ based simple text editor
  *  Copyright (C) 2004-2005 Tarot Osuji
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#define _L3AFPAD_MAIN
-#include "l3afpad.h"
+#define _FIGPAD_MAIN
+#include "figpad.h"
 #include <glib/gstdio.h>
 #include <stdio.h>
 #include <stdlib.h>

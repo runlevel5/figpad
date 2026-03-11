@@ -1,12 +1,12 @@
 # translation of tr.po to Türkçe
-# translation of l3afpad.po to Türkçe
+# translation of figpad.po to Türkçe
 # This file is distributed under the same license as the PACKAGE package.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER.
 # kaya oğuz <kaya@kuzeykutbu.org>, 2005.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: l3afpad-0.8.18.1.11\n"
+"Project-Id-Version: figpad-0.8.18.1.11\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-07-05 17:27+0200\n"
 "PO-Revision-Date: 2005-08-05 17:26+0300\n"
@@ -307,10 +307,10 @@ msgstr ""
 msgid "_Yes"
 msgstr ""
 
-#: ../data/l3afpad.desktop.in.h:1
-msgid "L3afpad"
-msgstr "L3afpad"
+#: ../data/figpad.desktop.in.h:1
+msgid "Figpad"
+msgstr "Figpad"
 
-#: ../data/l3afpad.desktop.in.h:2
+#: ../data/figpad.desktop.in.h:2
 msgid "Simple text editor"
 msgstr "Basit metin düzenleyicisi"

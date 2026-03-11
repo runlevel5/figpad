@@ -1,5 +1,5 @@
 /*
- *  L3afpad - GTK+ based simple text editor
+ *  Figpad - GTK+ based simple text editor
  *  Copyright (C) 2004-2005 Tarot Osuji
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,7 +17,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "l3afpad.h"
+#include "figpad.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -326,13 +326,18 @@ void on_option_auto_indent(void)
 
 void on_help_about(void)
 {
-	const gchar *copyright = "Copyright \xc2\xa9 2004-2010 Tarot Osuji\nCopyright \xc2\xa9 2011 Wen-Yen Chuang\nCopyright \xc2\xa9 2011 Jack Gandy\nCopyright \xc2\xa9 2012 Yoo, Taik-Yon\nCopyright \xc2\xa9 2014 Steven Honeyman";
-	const gchar *comments = _("GTK+ based simple text editor");
+	const gchar *copyright = "Copyright \xc2\xa9 2025 Trung L\xc3\xaa\n\nBased on l3afpad by:\nCopyright \xc2\xa9 2014 Steven Honeyman\nCopyright \xc2\xa9 2012 Yoo, Taik-Yon\n\nBased on leafpad by:\nCopyright \xc2\xa9 2004-2010 Tarot Osuji\nCopyright \xc2\xa9 2011 Wen-Yen Chuang\nCopyright \xc2\xa9 2011 Jack Gandy";
+	const gchar *comments = _("GTK4 based simple text editor");
 	const gchar *authors[] = {
+		"Trung L\xc3\xaa <8@tle.id.au>",
+		"",
+		"l3afpad authors:",
+		"Steven Honeyman <stevenhoneyman@gmail.com>",
+		"Yoo, Taik-Yon <jaagar@gmail.com>",
+		"",
+		"leafpad authors:",
 		"Tarot Osuji <tarot@sdf.lonestar.org>",
 		"Wen-Yen Chuang <caleb@calno.com>",
-		"Yoo, Taik-Yon <jaagar@gmail.com>",
-		"Steven Honeyman <stevenhoneyman@gmail.com>",
 		NULL
 	};
 	const gchar *translator_credits = _("translator-credits");
@@ -346,7 +351,7 @@ void on_help_about(void)
 		NULL
 	};
 	gtk_show_about_dialog(GTK_WINDOW(pub->mw->window),
-		"program-name", _("Lɜafpad"),
+		"program-name", _("figpad"),
 		"version", PACKAGE_VERSION,
 		"copyright", copyright,
 		"comments", comments,

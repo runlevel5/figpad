@@ -1,12 +1,12 @@
-# Italian translation of l3afpad
-# Copyright (C) 2008 THE L3AFPAD'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the l3afpad package.
+# Italian translation of figpad
+# Copyright (C) 2008 THE FIGPAD'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the figpad package.
 # Alessio D'Ascanio <g3ntaro@gmail.com, 2005
 # Vincenzo Campanella <vinz65@gmail.com>, 2008.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: l3afpad-0.8.13\n"
+"Project-Id-Version: figpad-0.8.13\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-07-05 17:27+0200\n"
 "PO-Revision-Date: 2008-11-29 18:23+0100\n"
@@ -308,10 +308,10 @@ msgstr ""
 msgid "_Yes"
 msgstr ""
 
-#: ../data/l3afpad.desktop.in.h:1
-msgid "L3afpad"
-msgstr "L3afpad"
+#: ../data/figpad.desktop.in.h:1
+msgid "Figpad"
+msgstr "Figpad"
 
-#: ../data/l3afpad.desktop.in.h:2
+#: ../data/figpad.desktop.in.h:2
 msgid "Simple text editor"
 msgstr "Semplice editor di testi"

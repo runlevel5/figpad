@@ -1,11 +1,11 @@
-# Serbian translation for L3afpad package
+# Serbian translation for Figpad package
 # Copyright (C) 2004-2007 Tarot Osuji
-# This file is distributed under the same license as the L3afpad package.
+# This file is distributed under the same license as the Figpad package.
 # Jay Alexander Fleming <tito.nehru.naser@gmail.com>, 2009.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: l3afpad-0.8.16\n"
+"Project-Id-Version: figpad-0.8.16\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-07-05 17:27+0200\n"
 "PO-Revision-Date: 2009-08-31 12:59+0100\n"
@@ -307,10 +307,10 @@ msgstr ""
 msgid "_Yes"
 msgstr ""
 
-#: ../data/l3afpad.desktop.in.h:1
-msgid "L3afpad"
-msgstr "L3afpad"
+#: ../data/figpad.desktop.in.h:1
+msgid "Figpad"
+msgstr "Figpad"
 
-#: ../data/l3afpad.desktop.in.h:2
+#: ../data/figpad.desktop.in.h:2
 msgid "Simple text editor"
 msgstr "Једноставан уређивач текста"

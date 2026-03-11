@@ -1,11 +1,11 @@
-# Dutch translations for l3afpad.
+# Dutch translations for figpad.
 # Copyright (C) 2004-2006 Tarot Osuji <tarot@sdf.lonestar.org>
-# This file is distributed under the same license as the l3afpad package.
+# This file is distributed under the same license as the figpad package.
 # Wouter Van Hemel <wouter-oss@publica.duodecim.org>, 2006.
 # Benno Schulenberg <benno@vertaalt.nl>, 2008.
 msgid ""
 msgstr ""
-"Project-Id-Version: l3afpad-0.8.13\n"
+"Project-Id-Version: figpad-0.8.13\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-07-05 17:27+0200\n"
 "PO-Revision-Date: 2008-01-15 15:15+0100\n"
@@ -309,10 +309,10 @@ msgstr ""
 msgid "_Yes"
 msgstr ""
 
-#: ../data/l3afpad.desktop.in.h:1
-msgid "L3afpad"
-msgstr "L3afpad"
+#: ../data/figpad.desktop.in.h:1
+msgid "Figpad"
+msgstr "Figpad"
 
-#: ../data/l3afpad.desktop.in.h:2
+#: ../data/figpad.desktop.in.h:2
 msgid "Simple text editor"
 msgstr "Eenvoudige teksteditor"

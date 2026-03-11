@@ -1,4 +1,4 @@
 icondir = $(datadir)/icons/hicolor/64x64/apps
-icon_DATA = l3afpad.png
+icon_DATA = figpad.png
 
 EXTRA_DIST = $(icon_DATA)

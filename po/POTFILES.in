@@ -8,4 +8,4 @@ src/selector.c
 src/file.c
 src/search.c
 src/dialog.c
-data/l3afpad.desktop.in
+data/figpad.desktop.in

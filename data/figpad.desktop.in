@@ -1,8 +1,8 @@
 [Desktop Entry]
-_Name=L3afpad
+_Name=Figpad
 _Comment=Simple text editor
-Exec=l3afpad %f
-Icon=l3afpad
+Exec=figpad %f
+Icon=figpad
 Terminal=false
 Type=Application
 MimeType=text/plain;

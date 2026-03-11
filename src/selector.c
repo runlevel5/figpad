@@ -1,5 +1,5 @@
 /*
- *  L3afpad - GTK+ based simple text editor
+ *  Figpad - GTK+ based simple text editor
  *  Copyright (C) 2004-2005 Tarot Osuji
  *  Copyright (C)      2011 Wen-Yen Chuang <caleb AT calno DOT com>
  *
@@ -18,7 +18,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "l3afpad.h"
+#include "figpad.h"
 #include <string.h>
 
 #define DEFAULT_ITEM_NUM 2

@@ -1,5 +1,5 @@
 /*
- *  L3afpad - GTK+ based simple text editor
+ *  Figpad - GTK+ based simple text editor
  *  Copyright (C) 2004-2005 Tarot Osuji
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,8 +17,8 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#ifndef _L3AFPAD_H
-#define _L3AFPAD_H
+#ifndef _FIGPAD_H
+#define _FIGPAD_H
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -73,10 +73,10 @@ typedef struct {
 	MainWin *mw;
 } PublicData;
 
-#ifndef _L3AFPAD_MAIN
+#ifndef _FIGPAD_MAIN
 extern PublicData *pub;
 #endif
 
 void save_config_file(void);
 
-#endif /* _L3AFPAD_H */
+#endif /* _FIGPAD_H */

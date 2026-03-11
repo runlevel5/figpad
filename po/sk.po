@@ -1,11 +1,11 @@
-# Slovak translation of l3afpad.
+# Slovak translation of figpad.
 # Copyright (C) 2004 Free Software Foundation, Inc.
-# This file is distributed under the same license as the l3afpad package.
-# Petr Chabada <l3afpad_chabada_sk>, 2005.
+# This file is distributed under the same license as the figpad package.
+# Petr Chabada <figpad_chabada_sk>, 2005.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: l3afpad-0.7.9\n"
+"Project-Id-Version: figpad-0.7.9\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-07-05 17:27+0200\n"
 "PO-Revision-Date: 2005-07-10 21:20+0100\n"
@@ -305,10 +305,10 @@ msgstr ""
 msgid "_Yes"
 msgstr ""
 
-#: ../data/l3afpad.desktop.in.h:1
-msgid "L3afpad"
-msgstr "L3afpad"
+#: ../data/figpad.desktop.in.h:1
+msgid "Figpad"
+msgstr "Figpad"
 
-#: ../data/l3afpad.desktop.in.h:2
+#: ../data/figpad.desktop.in.h:2
 msgid "Simple text editor"
 msgstr "Jednoduchý textový editor"

@@ -1,5 +1,5 @@
 /*
- *  L3afpad - GTK+ based simple text editor
+ *  Figpad - GTK+ based simple text editor
  *  Copyright (C) 2004-2005 Tarot Osuji
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -18,7 +18,7 @@
  */
 
 #include <string.h>
-#include "l3afpad.h"
+#include "figpad.h"
 //#include <gtk/gtk.h>
 
 static gboolean searched_flag = FALSE;

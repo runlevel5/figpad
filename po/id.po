@@ -1,11 +1,11 @@
-# Indonesian translations for l3afpad.
-# Copyright (C) 2008 THE l3afpad'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the l3afpad package.
+# Indonesian translations for figpad.
+# Copyright (C) 2008 THE figpad'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the figpad package.
 # Andhika Padmawan <andhika.padmawan@gmail.com>, 2009.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: l3afpad-0.8.16\n"
+"Project-Id-Version: figpad-0.8.16\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-07-05 17:27+0200\n"
 "PO-Revision-Date: 2009-06-25 21:35+0700\n"
@@ -305,10 +305,10 @@ msgstr ""
 msgid "_Yes"
 msgstr ""
 
-#: ../data/l3afpad.desktop.in.h:1
-msgid "L3afpad"
-msgstr "L3afpad"
+#: ../data/figpad.desktop.in.h:1
+msgid "Figpad"
+msgstr "Figpad"
 
-#: ../data/l3afpad.desktop.in.h:2
+#: ../data/figpad.desktop.in.h:2
 msgid "Simple text editor"
 msgstr "Penyunting teks sederhana"

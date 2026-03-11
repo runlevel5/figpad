@@ -1,11 +1,11 @@
-# Swedish translation of L3afpad text editor.
+# Swedish translation of Figpad text editor.
 # Copyright © 2005 Free Software Foundation, Inc.
-# This file is distributed under the same license as the l3afpad package.
+# This file is distributed under the same license as the figpad package.
 # Isak Savo <iso01001@student.mdh.se>, 2004.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: l3afpad-0.8.4\n"
+"Project-Id-Version: figpad-0.8.4\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-07-05 17:27+0200\n"
 "PO-Revision-Date: 2005-12-05 20:30+0100\n"
@@ -306,10 +306,10 @@ msgstr ""
 msgid "_Yes"
 msgstr ""
 
-#: ../data/l3afpad.desktop.in.h:1
-msgid "L3afpad"
-msgstr "L3afpad"
+#: ../data/figpad.desktop.in.h:1
+msgid "Figpad"
+msgstr "Figpad"
 
-#: ../data/l3afpad.desktop.in.h:2
+#: ../data/figpad.desktop.in.h:2
 msgid "Simple text editor"
 msgstr "Enkel textredigerare"

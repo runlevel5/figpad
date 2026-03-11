@@ -25,7 +25,7 @@
 
 #include <string.h>
 #include "gtksourceiter.h"
-#include "l3afpad.h"
+#include "figpad.h"
 
 #define GTK_TEXT_UNKNOWN_CHAR 0xFFFC
 

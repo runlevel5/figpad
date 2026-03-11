@@ -1,5 +1,5 @@
 /*
- *  L3afpad - GTK+ based simple text editor
+ *  Figpad - GTK+ based simple text editor
  *  Copyright (C) 2004-2005 Tarot Osuji
  *  Copyright (C) 2012      Yoo, Taik-Yon <jaagar AT gmail DOT com>
  *

@@ -1,9 +1,9 @@
-bin_PROGRAMS = l3afpad
+bin_PROGRAMS = figpad
 
 AM_CPPFLAGS = -DICONDIR=\"$(datadir)/pixmaps\"
 
-l3afpad_SOURCES = \
-	l3afpad.h main.c \
+figpad_SOURCES = \
+	figpad.h main.c \
 	window.h window.c \
 	menu.h menu.c \
 	callback.h callback.c \
@@ -24,5 +24,5 @@ l3afpad_SOURCES = \
 	emacs.h emacs.c \
 	gtksourceiter.h gtksourceiter.c
 
-l3afpad_CFLAGS  = $(GTK_CFLAGS)
-l3afpad_LDADD   = $(GTK_LIBS) $(INTLLIBS)
+figpad_CFLAGS  = $(GTK_CFLAGS)
+figpad_LDADD   = $(GTK_LIBS) $(INTLLIBS)

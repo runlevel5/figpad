@@ -1,11 +1,11 @@
-# Swiss-German translation of l3afpad.
+# Swiss-German translation of figpad.
 # Copyright (C) 2017 Free Software Foundation, Inc.
-# This file is distributed under the same license as the l3afpad package.
+# This file is distributed under the same license as the figpad package.
 # Robin Vobruba <hoijui.quaero@gmail.com>, 2017.
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: l3afpad-0.8.18.1.11\n"
+"Project-Id-Version: figpad-0.8.18.1.11\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2017-12-19 14:25+0100\n"
 "PO-Revision-Date: 2017-12-19 14:25+0100\n"
@@ -311,10 +311,10 @@ msgstr "_Nei"
 msgid "_Yes"
 msgstr "_Jo"
 
-#: ../data/l3afpad.desktop.in.h:1
-msgid "L3afpad"
-msgstr "L3afpad"
+#: ../data/figpad.desktop.in.h:1
+msgid "Figpad"
+msgstr "Figpad"
 
-#: ../data/l3afpad.desktop.in.h:2
+#: ../data/figpad.desktop.in.h:2
 msgid "Simple text editor"
 msgstr "Einfachä Texteditor"

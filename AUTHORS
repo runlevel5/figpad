@@ -1,9 +1,20 @@
 Bugs and feature requests please add to the issue tracker:
-https://github.com/stevenhoneyman/l3afpad/issues
+https://github.com/runlevel5/figpad/issues
 
-Originally forked from Leafpad 0.8.18.1 by caleb,
+figpad is based on l3afpad by Steven Honeyman,
+https://github.com/stevenhoneyman/l3afpad
+
+l3afpad is a GTK3 port of Leafpad by Tarot Osuji,
 http://tarot.freeshell.org/leafpad/
 
-Thanks to:
-  Wen-Yen Chuang (caleb)
-  Tarot Osuji
+leafpad authors:
+  Tarot Osuji <tarot@sdf.lonestar.org>
+  Wen-Yen Chuang (caleb) <caleb@calno.com>
+
+l3afpad authors:
+  Steven Honeyman <stevenhoneyman@gmail.com>
+  Yoo, Taik-Yon <jaagar@gmail.com>
+
+Artists:
+  Lapo Calamandrei <calamandrei@gmail.com>
+  Jack Gandy <scionicspectre@gmail.com>

@@ -1,5 +1,5 @@
 /*
- *  L3afpad - GTK+ based simple text editor
+ *  Figpad - GTK+ based simple text editor
  *  Copyright (C) 2004-2005 Tarot Osuji
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,7 +17,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "l3afpad.h"
+#include "figpad.h"
 /*
 static void cb_scroll_event(GtkAdjustment *adj, GtkWidget *view)
 {
@@ -34,7 +34,7 @@ MainWin *create_main_window(void)
 	mw->window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_widget_set_name(mw->window, PACKAGE_NAME);
 
-	gtk_window_set_icon_from_file(GTK_WINDOW(mw->window), ICONDIR"/l3afpad.png", NULL);
+	gtk_window_set_icon_from_file(GTK_WINDOW(mw->window), ICONDIR"/figpad.png", NULL);
 	gtk_window_set_default_icon_name(PACKAGE);
 
 	g_signal_connect(G_OBJECT(mw->window), "delete-event",

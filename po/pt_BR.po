@@ -1,6 +1,6 @@
-# Brazilian Portuguese translation of l3afpad package
+# Brazilian Portuguese translation of figpad package
 # Copyright (C) 2017 Free Software Foundation, Inc.
-# This file is distributed under the same license as the l3afpad package.
+# This file is distributed under the same license as the figpad package.
 # Alan Kelon Oliveira de Moraes <alankelon@yahoo.com.br>, 2004.
 # Fábio Antunes <fabio.antunes@hotmail.com>, 2008.
 # Leslie Harlley Watter <leslie@watter.org>, 2008.
@@ -8,7 +8,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: l3afpad-0.8.18.1.11\n"
+"Project-Id-Version: figpad-0.8.18.1.11\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2017-09-02 19:32-0300\n"
 "PO-Revision-Date: 2017-09-02 19:07-0200\n"
@@ -318,10 +318,10 @@ msgstr "_Não"
 msgid "_Yes"
 msgstr "_Sim"
 
-#: ../data/l3afpad.desktop.in.h:1
-msgid "L3afpad"
-msgstr "L3afpad"
+#: ../data/figpad.desktop.in.h:1
+msgid "Figpad"
+msgstr "Figpad"
 
-#: ../data/l3afpad.desktop.in.h:2
+#: ../data/figpad.desktop.in.h:2
 msgid "Simple text editor"
 msgstr "Editor de texto simples"
