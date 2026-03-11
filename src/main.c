@@ -82,18 +82,22 @@ void save_config_file(void)
 	gchar *fontname;
 	gboolean wordwrap, linenumbers, autoindent;
 
-	gtk_window_get_size(GTK_WINDOW(pub->mw->window), &width, &height);
-	fontname = pango_font_description_to_string(gtk_style_context_get_font(gtk_widget_get_style_context(pub->mw->view), 0));
-	wordwrap = gtk_toggle_action_get_active(
-		GTK_TOGGLE_ACTION(gtk_ui_manager_get_action(pub->mw->menubar,
-			"/M/Options/WordWrap")));
-	linenumbers = gtk_toggle_action_get_active(
-		GTK_TOGGLE_ACTION(gtk_ui_manager_get_action(pub->mw->menubar,
-			"/M/Options/LineNumbers")));
-	autoindent = gtk_toggle_action_get_active(
-		GTK_TOGGLE_ACTION(gtk_ui_manager_get_action(pub->mw->menubar,
-			"/M/Options/AutoIndent")));
-	tabwidth = get_current_tab_width();
+	/* GTK4 removed gtk_window_get_size(); use default size as proxy */
+	gtk_window_get_default_size(GTK_WINDOW(pub->mw->window), &width, &height);
+	if (width <= 0 || height <= 0) {
+		/* fallback: just keep what we had — window was never resized */
+		width = 600;
+		height = 400;
+	}
+
+	/* Font is tracked manually now — will be set up in font.c port.
+	 * For now use a placeholder that reads from the stored description. */
+	fontname = get_current_font_name();
+
+	wordwrap    = menu_toggle_get_active("word-wrap");
+	linenumbers = menu_toggle_get_active("line-numbers");
+	autoindent  = menu_toggle_get_active("auto-indent");
+	tabwidth    = get_current_tab_width();
 
 	path = g_build_filename(g_get_user_config_dir(), PACKAGE, NULL);
 	if (!g_file_test(path, G_FILE_TEST_IS_DIR))
@@ -122,7 +126,6 @@ void save_config_file(void)
 }
 
 gint jump_linenum = 0;
-GtkClipboard *selection_primary = NULL;
 
 static void parse_args(gint argc, gchar **argv, FileInfo *fi)
 {
@@ -146,7 +149,6 @@ static void parse_args(gint argc, gchar **argv, FileInfo *fi)
 
 	context = g_option_context_new("[filename]");
 	g_option_context_add_main_entries(context, entries, PACKAGE);
-	g_option_context_add_group(context, gtk_get_option_group(TRUE));
 	g_option_context_set_ignore_unknown_options(context, FALSE);
 	g_option_context_parse(context, &argc, &argv, &error);
 	g_option_context_free(context);
@@ -191,34 +193,17 @@ static void parse_args(gint argc, gchar **argv, FileInfo *fi)
 		fi->filename = parse_file_uri(argv[1]);
 }
 
-gint main(gint argc, gchar **argv)
+static void on_activate(GtkApplication *app, gpointer user_data)
 {
+	(void)user_data;
 	Conf *conf;
 	gchar *stdin_data = NULL;
 
-	bindtextdomain(PACKAGE, LOCALEDIR);
-	bind_textdomain_codeset(PACKAGE, "UTF-8");
-	textdomain(PACKAGE);
+	pub->app = app;
+	pub->mw = create_main_window(app);
 
-	pub = g_malloc(sizeof(PublicData));
-	pub->fi = g_malloc(sizeof(FileInfo));
-	pub->fi->filename     = NULL;
-	pub->fi->charset      = NULL;
-	pub->fi->charset_flag = FALSE;
-	pub->fi->lineend      = LF;
-
-	parse_args(argc, argv, pub->fi);
-
-#if !ENABLE_XINPUT2
-	gdk_disable_multidevice();
-#endif
-
-	gtk_init(&argc, &argv);
-	g_set_application_name(PACKAGE_NAME);
-
-	selection_primary = gtk_clipboard_get(GDK_SELECTION_PRIMARY);
-
-	pub->mw = create_main_window();
+	/* set icon for the window — GTK4 removed gtk_window_set_default_icon_name() */
+	gtk_window_set_icon_name(GTK_WINDOW(pub->mw->window), PACKAGE);
 
 	conf = g_malloc(sizeof(Conf));
 	conf->width       = 600;
@@ -235,31 +220,23 @@ gint main(gint argc, gchar **argv)
 		GTK_WINDOW(pub->mw->window), conf->width, conf->height);
 	set_text_font_by_name(pub->mw->view, conf->fontname);
 
-	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(
-		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Options/WordWrap")),
-		conf->wordwrap);
-	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(
-		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Options/LineNumbers")),
-		conf->linenumbers);
+	/* apply toggle states from config — these activate the actions which
+	 * in turn call the on_option_* callbacks */
+	menu_toggle_set_active("word-wrap",    conf->wordwrap);
+	menu_toggle_set_active("line-numbers", conf->linenumbers);
 	indent_set_default_tab_width(conf->tabwidth);
 	indent_refresh_tab_width(pub->mw->view);
-	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(
-		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Options/AutoIndent")),
-		conf->autoindent);
+	menu_toggle_set_active("auto-indent",  conf->autoindent);
 
-	gtk_widget_show_all(pub->mw->window);
 	g_free(conf->fontname);
 	g_free(conf);
 
 #if ENABLE_EMACS
-	check_emacs_key_theme(GTK_WINDOW(pub->mw->window), pub->mw->menubar);
+	/* Emacs module is disabled for GTK4 — uses nested gtk_main() */
 #endif
 
 	hlight_init(pub->mw->buffer);
-	undo_init(pub->mw->view,
-		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Edit/Undo"),
-		gtk_ui_manager_get_widget(pub->mw->menubar, "/M/Edit/Redo"));
-//	hlight_init(pub->mw->buffer);
+	undo_init(pub->mw->view, NULL, NULL);
 	dnd_init(pub->mw->view);
 
 	if (pub->fi->filename)
@@ -276,7 +253,6 @@ gint main(gint argc, gchar **argv)
 			get_default_charset(), NULL, NULL, NULL);
 		g_free(stdin_data);
 
-//		gtk_text_buffer_set_text(buffer, "", 0);
 		gtk_text_buffer_get_start_iter(pub->mw->buffer, &iter);
 		gtk_text_buffer_insert(pub->mw->buffer, &iter, str, strlen(str));
 		gtk_text_buffer_get_start_iter(pub->mw->buffer, &iter);
@@ -291,15 +267,42 @@ gint main(gint argc, gchar **argv)
 
 		gtk_text_buffer_get_iter_at_line(pub->mw->buffer, &iter, jump_linenum - 1);
 		gtk_text_buffer_place_cursor(pub->mw->buffer, &iter);
-//		gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(textview), &iter, 0.1, FALSE, 0.5, 0.5);
 		scroll_to_cursor(pub->mw->buffer, 0.25);
 	}
 
 	set_main_window_title();
 	indent_refresh_tab_width(pub->mw->view);
-//	hlight_apply_all(pub->mw->buffer);
 
-	gtk_main();
+	gtk_window_present(GTK_WINDOW(pub->mw->window));
+}
 
-	return 0;
+gint main(gint argc, gchar **argv)
+{
+	gint status;
+
+	bindtextdomain(PACKAGE, LOCALEDIR);
+	bind_textdomain_codeset(PACKAGE, "UTF-8");
+	textdomain(PACKAGE);
+
+	pub = g_malloc(sizeof(PublicData));
+	pub->fi = g_malloc(sizeof(FileInfo));
+	pub->fi->filename     = NULL;
+	pub->fi->charset      = NULL;
+	pub->fi->charset_flag = FALSE;
+	pub->fi->lineend      = LF;
+	pub->app              = NULL;
+
+	parse_args(argc, argv, pub->fi);
+
+	GtkApplication *app = gtk_application_new(
+		"id.tle.figpad", G_APPLICATION_DEFAULT_FLAGS);
+	g_set_application_name(PACKAGE_NAME);
+
+	g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
+
+	status = g_application_run(G_APPLICATION(app), argc, argv);
+
+	g_object_unref(app);
+
+	return status;
 }
