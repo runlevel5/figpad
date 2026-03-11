@@ -6,7 +6,7 @@ project('figpad', 'c',
 
 cc = meson.get_compiler('c')
 
-gtk_dep = dependency('gtk4', version: '>= 4.0')
+gtk_dep = dependency('gtk4', version: '>= 4.16.0')
 
 conf = configuration_data()
 conf.set_quoted('PACKAGE', meson.project_name())
