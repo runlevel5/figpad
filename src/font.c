@@ -27,7 +27,10 @@ static GtkCssProvider *font_css_provider = NULL;
 static void apply_font_css(GtkWidget *widget)
 {
 	gchar *css_str;
-	gchar *font_str;
+	const gchar *family;
+	gdouble size_pt;
+	PangoWeight weight;
+	PangoStyle style;
 
 	if (!current_font_desc)
 		return;
@@ -40,11 +43,29 @@ static void apply_font_css(GtkWidget *widget)
 			GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 	}
 
-	font_str = pango_font_description_to_string(current_font_desc);
-	css_str = g_strdup_printf("textview { font: %s; }", font_str);
+	family = pango_font_description_get_family(current_font_desc);
+	if (!family)
+		family = "Monospace";
+
+	/* Pango sizes are in Pango units (1/1024 of a point) when
+	 * not absolute.  Convert to CSS pt. */
+	size_pt = pango_font_description_get_size(current_font_desc)
+		/ (gdouble)PANGO_SCALE;
+
+	if (size_pt <= 0)
+		size_pt = 12.0;
+
+	weight = pango_font_description_get_weight(current_font_desc);
+	style = pango_font_description_get_style(current_font_desc);
+
+	css_str = g_strdup_printf(
+		"textview { font-family: \"%s\"; font-size: %.1fpt;"
+		" font-weight: %d; font-style: %s; }",
+		family, size_pt, (int)weight,
+		style == PANGO_STYLE_ITALIC ? "italic" :
+		style == PANGO_STYLE_OBLIQUE ? "oblique" : "normal");
 	gtk_css_provider_load_from_string(font_css_provider, css_str);
 	g_free(css_str);
-	g_free(font_str);
 }
 
 void set_text_font_by_name(GtkWidget *widget, gchar *fontname)
