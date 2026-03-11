@@ -33,24 +33,27 @@ Installation
 
 figpad requires:
 
-* GTK+-4.x.x libraries
-* ncurses library
+* GTK4 (>= 4.16.0)
 
 and for building also:
 
-* automake
-* intltool
+* meson (>= 0.59)
+* ninja
 
 Simple install procedure:
 
 ```sh
-$ tar xzvf figpad-x.x.x.tar.gz       # unpack the sources
-$ cd figpad-x.x.x                    # change to the toplevel directory
-$ ./autogen.sh                       # generate the `configure' script
-$ ./configure                        # run the `configure' script
-$ make                               # build
-# [ Become root if necessary ]
-# make install-strip                 # install
+$ meson setup builddir
+$ meson compile -C builddir
+$ meson install -C builddir          # may require root
+```
+
+Build options can be set with `meson configure`:
+
+```sh
+$ meson configure builddir -Denable_print=true
+$ meson configure builddir -Denable_statistics=true
+$ meson configure builddir -Denable_search_history=false
 ```
 
 Keybindings
