@@ -25,5 +25,6 @@ executable('figpad',
   sources,
   include_directories: config_inc,
   dependencies: gtk_dep,
+  c_args: ['-DHAVE_CONFIG_H'],
   install: true,
 )

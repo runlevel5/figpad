@@ -320,10 +320,11 @@ void on_option_line_numbers(void)
 
 void on_option_always_on_top(void)
 {
-	static gboolean flag = FALSE;
-
-	flag =! flag;
-	gtk_window_set_keep_above(GTK_WINDOW(pub->mw->window), flag);
+	/* gtk_window_set_keep_above() was removed in GTK4 with no replacement.
+	 * Always-on-top is now a compositor/window-manager policy and cannot be
+	 * requested by the application.  Keep the callback wired up so the menu
+	 * entry doesn't crash, but the action is a no-op for now. */
+	(void)0;
 }
 
 void on_option_auto_indent(void)

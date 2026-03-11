@@ -12,6 +12,7 @@ conf = configuration_data()
 conf.set_quoted('PACKAGE', meson.project_name())
 conf.set_quoted('PACKAGE_VERSION', meson.project_version())
 conf.set_quoted('PACKAGE_NAME', 'Figpad')
+conf.set_quoted('PACKAGE_STRING', 'Figpad ' + meson.project_version())
 conf.set_quoted('LOCALEDIR', join_paths(get_option('prefix'), get_option('localedir')))
 conf.set_quoted('ICONDIR', join_paths(get_option('prefix'), get_option('datadir'), 'pixmaps'))
 
@@ -26,8 +27,6 @@ conf.set('ENABLE_STATISTICS', opt_statistics ? 1 : 0)
 
 opt_search_history = get_option('enable_search_history')
 conf.set('SEARCH_HISTORY', opt_search_history ? 1 : 0)
-
-conf.set('HAVE_CONFIG_H', 1)
 
 configure_file(output: 'config.h', configuration: conf)
 
