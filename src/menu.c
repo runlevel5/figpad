@@ -19,200 +19,347 @@
  */
 
 #include "figpad.h"
-#include <gdk/gdkkeysyms.h>
 
-#define accel_group gtk_ui_manager_get_accel_group(ifactory)
+/* action names used to look up GSimpleAction for sensitivity changes */
+static GSimpleAction *action_save;
+static GSimpleAction *action_cut;
+static GSimpleAction *action_copy;
+static GSimpleAction *action_paste;
+static GSimpleAction *action_delete;
+static GSimpleAction *action_find_next;
+static GSimpleAction *action_find_prev;
 
-static GtkWidget *menu_item_save;
-static GtkWidget *menu_item_cut;
-static GtkWidget *menu_item_copy;
-static GtkWidget *menu_item_paste;
-static GtkWidget *menu_item_delete;
+/* window-level action map, saved so other modules can look up actions */
+static GActionMap *win_action_map;
 
-static GtkActionEntry menu_items[] =
-{
-	{ "File", NULL, N_("_File"), NULL, NULL, NULL },
-	{ "Edit", NULL, N_("_Edit"), NULL, NULL, NULL },
-	{ "Search", NULL, N_("_Search"), NULL, NULL, NULL },
-	{ "Options", NULL, N_("_Options"), NULL, NULL, NULL },
-	{ "Help", NULL, N_("_Help"), NULL, NULL, NULL },
-	{ "New", GTK_STOCK_NEW, N_("_New"), "<control>N", NULL, G_CALLBACK(on_file_new) },
-	{ "Open", GTK_STOCK_OPEN, N_("_Open..."), "<control>O", NULL, G_CALLBACK(on_file_open) },
-	{ "Save", GTK_STOCK_SAVE, N_("_Save"), "<control>S", NULL, G_CALLBACK(on_file_save) },
-	{ "SaveAs", GTK_STOCK_SAVE_AS, N_("Save _As..."), "<shift><control>S", NULL, G_CALLBACK(on_file_save_as) },
+/*
+ * Wrappers that adapt void(void) callbacks to the GAction activate signature.
+ * GSimpleAction "activate" passes (GSimpleAction *action, GVariant *param,
+ * gpointer user_data), but our old callbacks take no arguments.
+ */
+#define ACTION_CB(name, func) \
+static void action_##name(GSimpleAction *action, GVariant *param, gpointer data) \
+{ (void)action; (void)param; (void)data; func(); }
+
+ACTION_CB(file_new, on_file_new)
+ACTION_CB(file_open, on_file_open)
+ACTION_CB(file_save, on_file_save)
+ACTION_CB(file_save_as, on_file_save_as)
 #if ENABLE_STATISTICS
-	{ "Statistics", GTK_STOCK_PROPERTIES, N_("Sta_tistics..."), NULL, NULL, G_CALLBACK(on_file_stats) },
+ACTION_CB(file_stats, on_file_stats)
 #endif
 #if ENABLE_PRINT
-	{ "PrintPreview", GTK_STOCK_PRINT_PREVIEW, N_("Print Pre_view"), "<shift><control>P", NULL, G_CALLBACK(on_file_print_preview) },
-	{ "Print", GTK_STOCK_PRINT, N_("_Print..."), "<control>P", NULL, G_CALLBACK(on_file_print) },
+ACTION_CB(file_print_preview, on_file_print_preview)
+ACTION_CB(file_print, on_file_print)
 #endif
-	{ "Quit", GTK_STOCK_QUIT, N_("_Quit"), "<control>Q", NULL, G_CALLBACK(on_file_quit) },
-	{ "Undo", GTK_STOCK_UNDO, N_("_Undo"), "<control>Z", NULL, G_CALLBACK(on_edit_undo) },
-	{ "Redo", GTK_STOCK_REDO, N_("_Redo"), "<shift><control>Z", NULL, G_CALLBACK(on_edit_redo) },
-	{ "Cut", GTK_STOCK_CUT, N_("Cu_t"), "<control>X", NULL, G_CALLBACK(on_edit_cut) },
-	{ "Copy", GTK_STOCK_COPY, N_("_Copy"), "<control>C", NULL, G_CALLBACK(on_edit_copy) },
-	{ "Paste", GTK_STOCK_PASTE, N_("_Paste"), "<control>V", NULL, G_CALLBACK(on_edit_paste) },
-	{ "Delete", GTK_STOCK_DELETE, N_("_Delete"), NULL, NULL, G_CALLBACK(on_edit_delete) },
-	{ "SelectAll", NULL, N_("Select _All"), "<control>A", NULL, G_CALLBACK(on_edit_select_all) },
-	{ "Find", GTK_STOCK_FIND, N_("_Find..."), "<control>F", NULL, G_CALLBACK(on_search_find) },
-	{ "FindNext", NULL, N_("Find _Next"), "<control>G", NULL, G_CALLBACK(on_search_find_next) },
-	{ "FindPrevious", NULL, N_("Find _Previous"), "<shift><control>G", NULL, G_CALLBACK(on_search_find_previous) },
-	{ "Replace", GTK_STOCK_FIND_AND_REPLACE, N_("_Replace..."), "<control>H", NULL, G_CALLBACK(on_search_replace) },
-	{ "JumpTo", GTK_STOCK_JUMP_TO, N_("_Jump To..."), "<control>J", NULL, G_CALLBACK(on_search_jump_to) },
-	{ "Font", GTK_STOCK_SELECT_FONT, N_("_Font..."), NULL, NULL, G_CALLBACK(on_option_font) },
-	{ "About", GTK_STOCK_ABOUT, N_("_About"), NULL, NULL, G_CALLBACK(on_help_about) },
-};
+ACTION_CB(file_close, on_file_close)
+ACTION_CB(file_quit, on_file_quit)
+ACTION_CB(edit_undo, on_edit_undo)
+ACTION_CB(edit_redo, on_edit_redo)
+ACTION_CB(edit_cut, on_edit_cut)
+ACTION_CB(edit_copy, on_edit_copy)
+ACTION_CB(edit_paste, on_edit_paste)
+ACTION_CB(edit_delete, on_edit_delete)
+ACTION_CB(edit_select_all, on_edit_select_all)
+ACTION_CB(search_find, on_search_find)
+ACTION_CB(search_find_next, on_search_find_next)
+ACTION_CB(search_find_prev, on_search_find_previous)
+ACTION_CB(search_replace, on_search_replace)
+ACTION_CB(search_jump_to, on_search_jump_to)
+ACTION_CB(option_font, on_option_font)
+ACTION_CB(option_always_on_top, on_option_always_on_top)
+ACTION_CB(help_about, on_help_about)
 
-static guint nmenu_items = G_N_ELEMENTS (menu_items);
-
-static GtkToggleActionEntry toggle_entries[] =
+/* Toggle action callbacks — read new state from the GVariant */
+static void action_toggle_word_wrap(GSimpleAction *action, GVariant *param, gpointer data)
 {
-	{ "WordWrap", NULL, N_("_Word Wrap"), NULL, NULL, G_CALLBACK (on_option_word_wrap), FALSE },
-	{ "LineNumbers", NULL, N_("_Line Numbers"), NULL, NULL, G_CALLBACK (on_option_line_numbers), FALSE },
-	{ "AutoIndent", NULL, N_("_Auto Indent"), NULL, NULL, G_CALLBACK (on_option_auto_indent), FALSE },
-};
-static guint n_toggle_entries = G_N_ELEMENTS (toggle_entries);
+	(void)param; (void)data;
+	GVariant *state = g_action_get_state(G_ACTION(action));
+	gboolean active = !g_variant_get_boolean(state);
+	g_variant_unref(state);
+	g_simple_action_set_state(action, g_variant_new_boolean(active));
+	on_option_word_wrap();
+}
 
-static const gchar *ui_info =
-"<ui>"
-"  <menubar name='M'>"
-"    <menu action='File'>"
-"      <menuitem action='New'/>"
-"      <menuitem action='Open'/>"
-"      <menuitem action='Save'/>"
-"      <menuitem action='SaveAs'/>"
-"      <separator/>"
+static void action_toggle_line_numbers(GSimpleAction *action, GVariant *param, gpointer data)
+{
+	(void)param; (void)data;
+	GVariant *state = g_action_get_state(G_ACTION(action));
+	gboolean active = !g_variant_get_boolean(state);
+	g_variant_unref(state);
+	g_simple_action_set_state(action, g_variant_new_boolean(active));
+	on_option_line_numbers();
+}
+
+static void action_toggle_auto_indent(GSimpleAction *action, GVariant *param, gpointer data)
+{
+	(void)param; (void)data;
+	GVariant *state = g_action_get_state(G_ACTION(action));
+	gboolean active = !g_variant_get_boolean(state);
+	g_variant_unref(state);
+	g_simple_action_set_state(action, g_variant_new_boolean(active));
+	on_option_auto_indent();
+}
+
+/* plain actions (no state) */
+static const GActionEntry win_actions[] = {
+	{ "new",            action_file_new,          NULL, NULL, NULL },
+	{ "open",           action_file_open,         NULL, NULL, NULL },
+	{ "save",           action_file_save,         NULL, NULL, NULL },
+	{ "save-as",        action_file_save_as,      NULL, NULL, NULL },
 #if ENABLE_STATISTICS
-"      <menuitem action='Statistics'/>"
+	{ "statistics",     action_file_stats,        NULL, NULL, NULL },
 #endif
 #if ENABLE_PRINT
-"      <menuitem action='PrintPreview'/>"
-"      <menuitem action='Print'/>"
-"      <separator/>"
+	{ "print-preview",  action_file_print_preview, NULL, NULL, NULL },
+	{ "print",          action_file_print,        NULL, NULL, NULL },
 #endif
-"      <menuitem action='Quit'/>"
-"    </menu>"
-"    <menu action='Edit'>"
-"      <menuitem action='Undo'/>"
-"      <menuitem action='Redo'/>"
-"      <separator/>"
-"      <menuitem action='Cut'/>"
-"      <menuitem action='Copy'/>"
-"      <menuitem action='Paste'/>"
-"      <menuitem action='Delete'/>"
-"      <separator/>"
-"      <menuitem action='SelectAll'/>"
-"    </menu>"
-"    <menu action='Search'>"
-"      <menuitem action='Find'/>"
-"      <menuitem action='FindNext'/>"
-"      <menuitem action='FindPrevious'/>"
-"      <menuitem action='Replace'/>"
-"      <separator/>"
-"      <menuitem action='JumpTo'/>"
-"    </menu>"
-"    <menu action='Options'>"
-"      <menuitem action='Font'/>"
-"      <menuitem action='WordWrap'/>"
-"      <menuitem action='LineNumbers'/>"
-"      <separator/>"
-"      <menuitem action='AutoIndent'/>"
-"    </menu>"
-"    <menu action='Help'>"
-"      <menuitem action='About'/>"
-"    </menu>"
-"  </menubar>"
-"</ui>";
+	{ "close",          action_file_close,        NULL, NULL, NULL },
+	{ "quit",           action_file_quit,         NULL, NULL, NULL },
+	{ "undo",           action_edit_undo,         NULL, NULL, NULL },
+	{ "redo",           action_edit_redo,         NULL, NULL, NULL },
+	{ "cut",            action_edit_cut,          NULL, NULL, NULL },
+	{ "copy",           action_edit_copy,         NULL, NULL, NULL },
+	{ "paste",          action_edit_paste,        NULL, NULL, NULL },
+	{ "delete",         action_edit_delete,       NULL, NULL, NULL },
+	{ "select-all",     action_edit_select_all,   NULL, NULL, NULL },
+	{ "find",           action_search_find,       NULL, NULL, NULL },
+	{ "find-next",      action_search_find_next,  NULL, NULL, NULL },
+	{ "find-previous",  action_search_find_prev,  NULL, NULL, NULL },
+	{ "replace",        action_search_replace,    NULL, NULL, NULL },
+	{ "jump-to",        action_search_jump_to,    NULL, NULL, NULL },
+	{ "font",           action_option_font,       NULL, NULL, NULL },
+	{ "always-on-top",  action_option_always_on_top, NULL, NULL, NULL },
+	{ "about",          action_help_about,        NULL, NULL, NULL },
+};
 
-static gchar *menu_translate(const gchar *path, gpointer data)
+/* stateful toggle actions — initial state FALSE, toggled on activate */
+static const GActionEntry toggle_actions[] = {
+	{ "word-wrap",     action_toggle_word_wrap,     NULL, "false", NULL },
+	{ "line-numbers",  action_toggle_line_numbers,  NULL, "false", NULL },
+	{ "auto-indent",   action_toggle_auto_indent,   NULL, "false", NULL },
+};
+
+static GMenuModel *build_menu_model(void)
 {
-	return _(path);
+	GMenu *menubar = g_menu_new();
+
+	/* File menu */
+	GMenu *file_menu = g_menu_new();
+	g_menu_append(file_menu, _("_New"),            "win.new");
+	g_menu_append(file_menu, _("_Open..."),        "win.open");
+	g_menu_append(file_menu, _("_Save"),           "win.save");
+	g_menu_append(file_menu, _("Save _As..."),     "win.save-as");
+
+	GMenu *file_section2 = g_menu_new();
+#if ENABLE_STATISTICS
+	g_menu_append(file_section2, _("Sta_tistics..."), "win.statistics");
+#endif
+#if ENABLE_PRINT
+	g_menu_append(file_section2, _("Print Pre_view"), "win.print-preview");
+	g_menu_append(file_section2, _("_Print..."),      "win.print");
+#endif
+
+	GMenu *file_section3 = g_menu_new();
+	g_menu_append(file_section3, _("_Quit"), "win.quit");
+
+	g_menu_append_section(file_menu, NULL, G_MENU_MODEL(file_section2));
+	g_menu_append_section(file_menu, NULL, G_MENU_MODEL(file_section3));
+	g_menu_append_submenu(menubar, _("_File"), G_MENU_MODEL(file_menu));
+	g_object_unref(file_section2);
+	g_object_unref(file_section3);
+	g_object_unref(file_menu);
+
+	/* Edit menu */
+	GMenu *edit_menu = g_menu_new();
+	GMenu *edit_undo_section = g_menu_new();
+	g_menu_append(edit_undo_section, _("_Undo"), "win.undo");
+	g_menu_append(edit_undo_section, _("_Redo"), "win.redo");
+
+	GMenu *edit_clip_section = g_menu_new();
+	g_menu_append(edit_clip_section, _("Cu_t"),    "win.cut");
+	g_menu_append(edit_clip_section, _("_Copy"),   "win.copy");
+	g_menu_append(edit_clip_section, _("_Paste"),  "win.paste");
+	g_menu_append(edit_clip_section, _("_Delete"), "win.delete");
+
+	GMenu *edit_sel_section = g_menu_new();
+	g_menu_append(edit_sel_section, _("Select _All"), "win.select-all");
+
+	g_menu_append_section(edit_menu, NULL, G_MENU_MODEL(edit_undo_section));
+	g_menu_append_section(edit_menu, NULL, G_MENU_MODEL(edit_clip_section));
+	g_menu_append_section(edit_menu, NULL, G_MENU_MODEL(edit_sel_section));
+	g_menu_append_submenu(menubar, _("_Edit"), G_MENU_MODEL(edit_menu));
+	g_object_unref(edit_undo_section);
+	g_object_unref(edit_clip_section);
+	g_object_unref(edit_sel_section);
+	g_object_unref(edit_menu);
+
+	/* Search menu */
+	GMenu *search_menu = g_menu_new();
+	GMenu *search_find_section = g_menu_new();
+	g_menu_append(search_find_section, _("_Find..."),        "win.find");
+	g_menu_append(search_find_section, _("Find _Next"),      "win.find-next");
+	g_menu_append(search_find_section, _("Find _Previous"),  "win.find-previous");
+	g_menu_append(search_find_section, _("_Replace..."),     "win.replace");
+
+	GMenu *search_jump_section = g_menu_new();
+	g_menu_append(search_jump_section, _("_Jump To..."), "win.jump-to");
+
+	g_menu_append_section(search_menu, NULL, G_MENU_MODEL(search_find_section));
+	g_menu_append_section(search_menu, NULL, G_MENU_MODEL(search_jump_section));
+	g_menu_append_submenu(menubar, _("_Search"), G_MENU_MODEL(search_menu));
+	g_object_unref(search_find_section);
+	g_object_unref(search_jump_section);
+	g_object_unref(search_menu);
+
+	/* Options menu */
+	GMenu *options_menu = g_menu_new();
+	GMenu *options_section1 = g_menu_new();
+	g_menu_append(options_section1, _("_Font..."),       "win.font");
+	g_menu_append(options_section1, _("_Word Wrap"),     "win.word-wrap");
+	g_menu_append(options_section1, _("_Line Numbers"),  "win.line-numbers");
+
+	GMenu *options_section2 = g_menu_new();
+	g_menu_append(options_section2, _("_Auto Indent"), "win.auto-indent");
+
+	g_menu_append_section(options_menu, NULL, G_MENU_MODEL(options_section1));
+	g_menu_append_section(options_menu, NULL, G_MENU_MODEL(options_section2));
+	g_menu_append_submenu(menubar, _("_Options"), G_MENU_MODEL(options_menu));
+	g_object_unref(options_section1);
+	g_object_unref(options_section2);
+	g_object_unref(options_menu);
+
+	/* Help menu */
+	GMenu *help_menu = g_menu_new();
+	g_menu_append(help_menu, _("_About"), "win.about");
+	g_menu_append_submenu(menubar, _("_Help"), G_MENU_MODEL(help_menu));
+	g_object_unref(help_menu);
+
+	return G_MENU_MODEL(menubar);
 }
 
 void menu_sensitivity_from_modified_flag(gboolean is_text_modified)
 {
-	gtk_widget_set_sensitive(menu_item_save,   is_text_modified);
+	g_simple_action_set_enabled(action_save, is_text_modified);
 }
 
 void menu_sensitivity_from_selection_bound(gboolean is_bound_exist)
 {
-	gtk_widget_set_sensitive(menu_item_cut,    is_bound_exist);
-	gtk_widget_set_sensitive(menu_item_copy,   is_bound_exist);
-	gtk_widget_set_sensitive(menu_item_delete, is_bound_exist);
+	g_simple_action_set_enabled(action_cut,    is_bound_exist);
+	g_simple_action_set_enabled(action_copy,   is_bound_exist);
+	g_simple_action_set_enabled(action_delete, is_bound_exist);
 }
 
-//void menu_sensitivity_from_clipboard(gboolean is_clipboard_exist)
 void menu_sensitivity_from_clipboard(void)
 {
-//g_print("clip board checked.\n");
-	gtk_widget_set_sensitive(menu_item_paste,
-		gtk_clipboard_wait_is_text_available(
-			gtk_clipboard_get(GDK_SELECTION_CLIPBOARD)));
+	/* In GTK4 there is no synchronous clipboard check.
+	 * For now, always enable paste — will be refined during view.c port
+	 * when we switch to the GdkClipboard async API. */
+	g_simple_action_set_enabled(action_paste, TRUE);
 }
 
-GtkUIManager *create_menu_bar(GtkWidget *window)
+void menu_sensitivity_from_find(gboolean sensitive)
 {
-	GtkUIManager *ifactory;
-#if 0
-	gboolean flag_emacs = FALSE;
+	g_simple_action_set_enabled(action_find_next, sensitive);
+	g_simple_action_set_enabled(action_find_prev, sensitive);
+}
 
-	gchar *key_theme = NULL;
-	GtkSettings *settings = gtk_settings_get_default();
-	if (settings) {
-		g_object_get(settings, "gtk-key-theme-name", &key_theme, NULL);
-		if (key_theme) {
-			if (!g_ascii_strcasecmp(key_theme, "Emacs"))
-				flag_emacs = TRUE;
-			g_free(key_theme);
-		}
-	}
+gboolean menu_toggle_get_active(const gchar *action_name)
+{
+	GAction *action = g_action_map_lookup_action(win_action_map, action_name);
+	if (!action) return FALSE;
+	GVariant *state = g_action_get_state(action);
+	gboolean active = g_variant_get_boolean(state);
+	g_variant_unref(state);
+	return active;
+}
+
+void menu_toggle_set_active(const gchar *action_name, gboolean is_active)
+{
+	GAction *action = g_action_map_lookup_action(win_action_map, action_name);
+	if (!action) return;
+	/* Activate the action to toggle it — only if current state differs */
+	GVariant *state = g_action_get_state(action);
+	if (g_variant_get_boolean(state) != is_active)
+		g_action_activate(action, NULL);
+	g_variant_unref(state);
+}
+
+GtkWidget *create_menu_bar(GtkWindow *window, GtkApplication *app)
+{
+	win_action_map = G_ACTION_MAP(window);
+
+	/* register actions on the window */
+	g_action_map_add_action_entries(G_ACTION_MAP(window),
+		win_actions, G_N_ELEMENTS(win_actions), NULL);
+	g_action_map_add_action_entries(G_ACTION_MAP(window),
+		toggle_actions, G_N_ELEMENTS(toggle_actions), NULL);
+
+	/* keyboard accelerators */
+	const gchar *new_accels[]           = { "<Control>n", NULL };
+	const gchar *open_accels[]          = { "<Control>o", NULL };
+	const gchar *save_accels[]          = { "<Control>s", NULL };
+	const gchar *save_as_accels[]       = { "<Shift><Control>s", NULL };
+	const gchar *quit_accels[]          = { "<Control>q", NULL };
+	/* Ctrl+W closes the document (clears buffer), not the app */
+	const gchar *close_accels[]         = { "<Control>w", NULL };
+	const gchar *undo_accels[]          = { "<Control>z", NULL };
+	const gchar *redo_accels[]          = { "<Shift><Control>z", "<Control>y", NULL };
+	const gchar *cut_accels[]           = { "<Control>x", NULL };
+	const gchar *copy_accels[]          = { "<Control>c", NULL };
+	const gchar *paste_accels[]         = { "<Control>v", NULL };
+	const gchar *select_all_accels[]    = { "<Control>a", NULL };
+	const gchar *find_accels[]          = { "<Control>f", NULL };
+	const gchar *find_next_accels[]     = { "<Control>g", "F3", NULL };
+	const gchar *find_prev_accels[]     = { "<Shift><Control>g", "<Shift>F3", NULL };
+	const gchar *replace_accels[]       = { "<Control>h", "<Control>r", NULL };
+	const gchar *jump_to_accels[]       = { "<Control>j", NULL };
+	const gchar *always_on_top_accels[] = { "<Control>t", NULL };
+#if ENABLE_PRINT
+	const gchar *print_accels[]         = { "<Control>p", NULL };
+	const gchar *print_preview_accels[] = { "<Shift><Control>p", NULL };
 #endif
 
-	ifactory = gtk_ui_manager_new();
-	GtkActionGroup *actions = gtk_action_group_new("Actions");
-	gtk_action_group_set_translate_func(actions, menu_translate, NULL, NULL);
-	gtk_action_group_add_actions(actions, menu_items, nmenu_items, NULL);
-	gtk_action_group_add_toggle_actions (actions, toggle_entries, n_toggle_entries, NULL);
-	gtk_ui_manager_insert_action_group(ifactory, actions, 0);
-	g_object_unref(actions);
-	gtk_ui_manager_add_ui_from_string(ifactory, ui_info, -1, NULL);
-	gtk_window_add_accel_group(GTK_WINDOW(window), accel_group);
+	gtk_application_set_accels_for_action(app, "win.new",           new_accels);
+	gtk_application_set_accels_for_action(app, "win.open",          open_accels);
+	gtk_application_set_accels_for_action(app, "win.save",          save_accels);
+	gtk_application_set_accels_for_action(app, "win.save-as",       save_as_accels);
+	gtk_application_set_accels_for_action(app, "win.quit",          quit_accels);
+	gtk_application_set_accels_for_action(app, "win.close",         close_accels);
+	gtk_application_set_accels_for_action(app, "win.undo",          undo_accels);
+	gtk_application_set_accels_for_action(app, "win.redo",          redo_accels);
+	gtk_application_set_accels_for_action(app, "win.cut",           cut_accels);
+	gtk_application_set_accels_for_action(app, "win.copy",          copy_accels);
+	gtk_application_set_accels_for_action(app, "win.paste",         paste_accels);
+	gtk_application_set_accels_for_action(app, "win.select-all",    select_all_accels);
+	gtk_application_set_accels_for_action(app, "win.find",          find_accels);
+	gtk_application_set_accels_for_action(app, "win.find-next",     find_next_accels);
+	gtk_application_set_accels_for_action(app, "win.find-previous", find_prev_accels);
+	gtk_application_set_accels_for_action(app, "win.replace",       replace_accels);
+	gtk_application_set_accels_for_action(app, "win.jump-to",       jump_to_accels);
+	gtk_application_set_accels_for_action(app, "win.always-on-top", always_on_top_accels);
+#if ENABLE_PRINT
+	gtk_application_set_accels_for_action(app, "win.print",         print_accels);
+	gtk_application_set_accels_for_action(app, "win.print-preview", print_preview_accels);
+#endif
 
-	/* hidden keybinds */
-	gtk_accel_group_connect(
-		accel_group, GDK_KEY_W, GDK_CONTROL_MASK, 0,
-		g_cclosure_new_swap(G_CALLBACK(on_file_close), NULL, NULL));
-	gtk_accel_group_connect(
-		accel_group, GDK_KEY_T, GDK_CONTROL_MASK, 0,
-		g_cclosure_new_swap(G_CALLBACK(on_option_always_on_top), NULL, NULL));
-	gtk_widget_add_accelerator(
-		gtk_ui_manager_get_widget(ifactory, "/M/Edit/Redo"),
-		"activate", accel_group, GDK_KEY_Y, GDK_CONTROL_MASK, 0);
-	gtk_widget_add_accelerator(
-		gtk_ui_manager_get_widget(ifactory, "/M/Search/FindNext"),
-		"activate", accel_group, GDK_KEY_F3, 0, 0);
-	gtk_widget_add_accelerator(
-		gtk_ui_manager_get_widget(ifactory, "/M/Search/FindPrevious"),
-		"activate", accel_group, GDK_KEY_F3, GDK_SHIFT_MASK, 0);
-	gtk_widget_add_accelerator(
-		gtk_ui_manager_get_widget(ifactory, "/M/Search/Replace"),
-		"activate", accel_group, GDK_KEY_R, GDK_CONTROL_MASK, 0);
+	/* cache action pointers for sensitivity functions */
+	action_save      = G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(window), "save"));
+	action_cut       = G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(window), "cut"));
+	action_copy      = G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(window), "copy"));
+	action_paste     = G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(window), "paste"));
+	action_delete    = G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(window), "delete"));
+	action_find_next = G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(window), "find-next"));
+	action_find_prev = G_SIMPLE_ACTION(g_action_map_lookup_action(G_ACTION_MAP(window), "find-previous"));
 
-	/* initialize sensitivities */
-	gtk_widget_set_sensitive(
-		gtk_ui_manager_get_widget(ifactory, "/M/Search/FindNext"),
-		FALSE);
-	gtk_widget_set_sensitive(
-		gtk_ui_manager_get_widget(ifactory, "/M/Search/FindPrevious"),
-		FALSE);
-
-	menu_item_save   = gtk_ui_manager_get_widget(ifactory, "/M/File/Save");
-	menu_item_cut    = gtk_ui_manager_get_widget(ifactory, "/M/Edit/Cut");
-	menu_item_copy   = gtk_ui_manager_get_widget(ifactory, "/M/Edit/Copy");
-	menu_item_paste  = gtk_ui_manager_get_widget(ifactory, "/M/Edit/Paste");
-	menu_item_delete = gtk_ui_manager_get_widget(ifactory, "/M/Edit/Delete");
+	/* initial sensitivities */
 	menu_sensitivity_from_selection_bound(FALSE);
+	menu_sensitivity_from_find(FALSE);
 
-	return ifactory;
+	/* build the GMenuModel and create a popover menu bar */
+	GMenuModel *model = build_menu_model();
+	GtkWidget *bar = gtk_popover_menu_bar_new_from_model(model);
+	g_object_unref(model);
+
+	return bar;
 }

@@ -22,8 +22,10 @@
 
 void menu_sensitivity_from_modified_flag(gboolean is_text_modified);
 void menu_sensitivity_from_selection_bound(gboolean is_bound_exist);
-//void menu_sensitivity_from_clipboard(gboolean is_clipboard_exist);
 void menu_sensitivity_from_clipboard(void);
-GtkUIManager *create_menu_bar(GtkWidget *window);
+GtkWidget *create_menu_bar(GtkWindow *window, GtkApplication *app);
+gboolean menu_toggle_get_active(const gchar *action_name);
+void menu_toggle_set_active(const gchar *action_name, gboolean is_active);
+void menu_sensitivity_from_find(gboolean sensitive);
 
 #endif /* _MENU_H */
