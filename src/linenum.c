@@ -112,11 +112,9 @@ get_lines (GtkTextView  *text_view,
 static inline PangoAttribute *
 line_numbers_foreground_attr_new(GtkWidget *widget)
 {
-	GtkStyleContext *context;
 	GdkRGBA          rgb;
 
-	context = gtk_widget_get_style_context(widget);
-	gtk_style_context_get_color(context, &rgb);
+	gtk_widget_get_color(widget, &rgb);
 
 	return pango_attr_foreground_new((guint16)(rgb.red   * 65535),
 									 (guint16)(rgb.green * 65535),
