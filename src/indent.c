@@ -19,7 +19,6 @@
 
 #include <string.h>
 #include <gtk/gtk.h>
-//#include <gdk/gdkkeysyms.h>
 #include <undo.h>
 #include "indent.h"
 

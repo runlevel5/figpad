@@ -57,13 +57,9 @@ static gboolean hlight_searched_strings(GtkTextBuffer *buffer, gchar *str)
 			retval = TRUE;
 			gtk_text_buffer_apply_tag_by_name(buffer,
 				"searched", &start, &end);
-//				replace_mode ? "replaced" : "searched", &start, &end);
 			iter = end;
 		}
 	} while (res);
-/*	if (replace_mode)
-		replace_mode = FALSE;
-	else	*/
 	hlight_toggle_searched(buffer);
 
 	return retval;
@@ -82,7 +78,6 @@ gboolean document_search_real(GtkWidget *textview, gint direction)
 	if (!match_case)
 		search_flags = search_flags | GTK_SOURCE_SEARCH_CASE_INSENSITIVE;
 
-//	if (direction == 0 || !hlight_check_searched())
 	if (direction == 0 || (direction != 2 && !hlight_check_searched()))
 		hlight_searched_strings(gtk_text_view_get_buffer(GTK_TEXT_VIEW(textview)), string_find);
 
@@ -121,7 +116,6 @@ gboolean document_search_real(GtkWidget *textview, gint direction)
 	if (res) {
 		gtk_text_buffer_place_cursor(textbuffer, &match_start);
 		gtk_text_buffer_move_mark_by_name(textbuffer, "insert", &match_end);
-//		gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(textview), &match_start, 0.1, FALSE, 0.5, 0.5);
 		scroll_to_cursor(textbuffer, 0.05);
 	}
 	else if (direction == 0)
@@ -150,8 +144,6 @@ static gint document_replace_real(GtkWidget *textview)
 		gtk_text_buffer_get_start_iter(textbuffer, &iter);
 
 		gtk_text_buffer_get_end_iter(textbuffer, &match_end);
-//		gtk_text_buffer_remove_tag_by_name(textbuffer,
-//			"replaced", &iter, &match_end);
 		gtk_text_buffer_remove_all_tags(textbuffer,
 			&iter, &match_end);
 	} else {
@@ -171,7 +163,6 @@ static gint document_replace_real(GtkWidget *textview)
 			}
 		}
 		else
-//			res = document_search_real(textview, 0);
 			res = document_search_real(textview, 2);
 
 		if (res) {

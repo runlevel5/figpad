@@ -33,18 +33,6 @@ void clear_current_keyval(void)
 {
 	keyval = 0;
 }
-/*
-gboolean scroll_to_cursor(GtkTextBuffer *buffer, gdouble within_margin)
-{
-	GtkTextIter iter;
-
-//	gtk_text_buffer_get_start_iter(buffer, &iter);
-	gtk_text_buffer_get_iter_at_mark(buffer, &iter,
-		gtk_text_buffer_get_insert(buffer));
-	return gtk_text_view_scroll_to_iter(GTK_TEXT_VIEW(pub->mw->view),
-		&iter, within_margin, FALSE, 0.5, 0.5);
-}
-*/
 void scroll_to_cursor(GtkTextBuffer *buffer, gdouble within_margin)
 {
 	gtk_text_view_scroll_to_mark(GTK_TEXT_VIEW(pub->mw->view),
@@ -75,18 +63,6 @@ gint check_text_modification(void)
 
 	return 0;
 }
-
-#if 0
-static gint check_preedit(GtkWidget *view)
-{
-	gint cursor_pos;
-
-	gtk_im_context_get_preedit_string(
-		GTK_TEXT_VIEW(view)->im_context, NULL, NULL, &cursor_pos);
-
-	return cursor_pos;
-}
-#endif
 
 static gboolean check_selection_bound(GtkTextBuffer *buffer)
 {
@@ -134,7 +110,6 @@ static gboolean cb_key_pressed(GtkEventControllerKey *controller,
 	gtk_text_view_get_iter_location(GTK_TEXT_VIEW(view), &iter, &prev_rect);
 
 	keyval = 0;
-//g_print("key-pressed: 0x%X\n", kv);
 	switch (kv) {
 	case GDK_KEY_Up:		// Try [Shift]+[Down]. it works bad.
 	case GDK_KEY_Down:
@@ -206,7 +181,6 @@ static gboolean cb_key_pressed(GtkEventControllerKey *controller,
 		|| (kv == GDK_KEY_Control_L)
 		|| (kv == GDK_KEY_Control_R)) {
 		keyval = keyval + 0x10000;
-//g_print("=================================================\n");
 	}
 
 	return FALSE;
@@ -328,29 +302,7 @@ static void cb_focus_leave(GtkEventControllerFocus *controller, gpointer user_da
 			gtk_text_buffer_get_selection_bound(
 				gtk_text_view_get_buffer(GTK_TEXT_VIEW(view))), TRUE);
 }
-/*
-static void cb_begin_user_action(GtkTextBuffer *buffer, GtkWidget *view)
-{
-	g_signal_handlers_unblock_by_func(G_OBJECT(buffer),
-		G_CALLBACK(cb_modified_changed), view);
-//	g_print("begin-user-action\n");
-}
 
-static void cb_end_user_action(GtkTextBuffer *buffer, GtkWidget *view)
-{
-	g_signal_handlers_block_by_func(G_OBJECT(buffer),
-		G_CALLBACK(cb_modified_changed), view);
-	gtk_text_view_scroll_mark_onscreen(		// TODO: require?
-		GTK_TEXT_VIEW(view),
-		gtk_text_buffer_get_insert(buffer));
-//	g_print("end-user-action\n");
-}
-*//*
-static void cb_something(GtkTextBuffer *buffer, gchar *data)
-{
-	g_print("%s\n", data);
-}
-*/
 void set_view_scroll(void)
 {
 	view_scroll_flag = TRUE;

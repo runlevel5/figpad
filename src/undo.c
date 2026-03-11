@@ -23,8 +23,6 @@
 
 #define DV(x)
 
-//"GTK_TEXT_VIEW(view)->overwrite_mode" can get overwrite_mode state
-
 typedef struct {
 	gchar command;
 	gint start;

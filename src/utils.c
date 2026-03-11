@@ -172,20 +172,4 @@ GtkWidget *get_combo_entry(GtkWidget *combo_box)
 	return GTK_WIDGET(g_object_get_data(G_OBJECT(combo_box), "entry"));
 }
 
-#if 0 /* if we want to cleanup before exit ... */
-void clear_combo_history (GList *history)
-{
-	GList *node;
-	if (history != NULL)
-	{
-		for (node = history; node != NULL; node = g_list_next (node))
-		{
-			if (node->data != NULL)
-				g_free (node->data);
-		}
-		g_list_free (history);
-		history = NULL;
-	}
-}
-#endif
 #endif
