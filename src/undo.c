@@ -18,8 +18,6 @@
  */
 
 #include <gtk/gtk.h>
-#include <gdk/gdkkeysyms.h>
-#include <gdk/gdkkeysyms-compat.h>
 #include "view.h"
 #include "undo.h"
 
@@ -41,8 +39,8 @@ enum {
 	DEL
 };
 
-static GtkWidget *undo_w = NULL;
-static GtkWidget *redo_w = NULL;
+static GSimpleAction *undo_action = NULL;
+static GSimpleAction *redo_action = NULL;
 static GList *undo_list = NULL;
 static GList *redo_list = NULL;
 static GString *undo_gstr;
@@ -52,6 +50,18 @@ static guint prev_keyval;
 static gboolean seq_reserve = FALSE;
 
 static void undo_flush_temporal_buffer(GtkTextBuffer *buffer);
+
+/* helpers to enable/disable undo/redo, safe with NULL action pointers */
+static inline void set_undo_sensitive(gboolean sensitive)
+{
+	if (undo_action)
+		g_simple_action_set_enabled(undo_action, sensitive);
+}
+static inline void set_redo_sensitive(gboolean sensitive)
+{
+	if (redo_action)
+		g_simple_action_set_enabled(redo_action, sensitive);
+}
 
 static GList *undo_clear_info_list(GList *info_list)
 {
@@ -70,7 +80,6 @@ static void undo_append_undo_info(GtkTextBuffer *buffer, gchar command, gint sta
 	ui->command = command;
 	ui->start = start;
 	ui->end = end;
-//	ui->seq = FALSE;
 	ui->seq = seq_reserve;
 	ui->str = str;
 
@@ -132,8 +141,8 @@ static void undo_create_undo_info(GtkTextBuffer *buffer, gchar command, gint sta
 			}
 			redo_list = undo_clear_info_list(redo_list);
 			prev_keyval = keyval;
-			gtk_widget_set_sensitive(undo_w, TRUE);
-			gtk_widget_set_sensitive(redo_w, FALSE);
+			set_undo_sensitive(TRUE);
+			set_redo_sensitive(FALSE);
 			return;
 		}
 		undo_append_undo_info(buffer, ui_tmp->command, ui_tmp->start, ui_tmp->end, g_strdup(undo_gstr->str));
@@ -157,9 +166,8 @@ static void undo_create_undo_info(GtkTextBuffer *buffer, gchar command, gint sta
 	redo_list = undo_clear_info_list(redo_list);
 	prev_keyval = keyval;
 	clear_current_keyval();
-//	keyevent_setval(0);
-	gtk_widget_set_sensitive(undo_w, TRUE);
-	gtk_widget_set_sensitive(redo_w, FALSE);
+	set_undo_sensitive(TRUE);
+	set_redo_sensitive(FALSE);
 }
 
 static void cb_insert_text(GtkTextBuffer *buffer, GtkTextIter *iter, gchar *str)
@@ -201,27 +209,10 @@ static void undo_check_modified_step(GtkTextBuffer *buffer)
 	gboolean flag;
 
 	flag = (modified_step == g_list_length(undo_list));
-//g_print("%d - %d = %d\n", modified_step, g_list_length(undo_list), flag);
 	if (gtk_text_buffer_get_modified(buffer) == flag)
 		gtk_text_buffer_set_modified(buffer, !flag);
-//g_print("change!\n");}
 }
-/*
-static void undo_check_modified_step(GtkTextBuffer *buffer)
-{
-	if (modified_step == g_list_length(undo_list))
-		gtk_text_buffer_set_modified(buffer, FALSE);
-}
-*//* // ????? "modified-changed" signal isn't emitted properly...
-#include "window.h"
-static void undo_check_modified_step(GtkTextBuffer *buffer)
-{
-	if (modified_step == g_list_length(undo_list)) {
-		gtk_text_buffer_set_modified(buffer, FALSE);
-		set_main_window_title();
-	}
-}
-*/
+
 static void cb_begin_user_action(GtkTextBuffer *buffer)
 {
 	g_signal_handlers_unblock_by_func(G_OBJECT(buffer),
@@ -246,20 +237,29 @@ void undo_clear_all(GtkTextBuffer *buffer)
 	undo_list = undo_clear_info_list(undo_list);
 	redo_list = undo_clear_info_list(redo_list);
 	undo_reset_modified_step(buffer);
-	gtk_widget_set_sensitive(undo_w, FALSE);
-	gtk_widget_set_sensitive(redo_w, FALSE);
+	set_undo_sensitive(FALSE);
+	set_redo_sensitive(FALSE);
 
 	ui_tmp->command = INS;
 	undo_gstr = g_string_erase(undo_gstr, 0, -1);
 	prev_keyval = 0;
 }
 
-void undo_init(GtkWidget *view, GtkWidget *undo_button, GtkWidget *redo_button)
+void undo_init(GtkWidget *view, GtkWidget *undo_w, GtkWidget *redo_w)
 {
 	GtkTextBuffer *buffer = gtk_text_view_get_buffer(GTK_TEXT_VIEW(view));
 
-	undo_w = undo_button;
-	redo_w = redo_button;
+	(void)undo_w; (void)redo_w;
+
+	/* look up GSimpleActions from the window's action map */
+	GtkWidget *toplevel = GTK_WIDGET(gtk_widget_get_root(view));
+	if (toplevel) {
+		GAction *a;
+		a = g_action_map_lookup_action(G_ACTION_MAP(toplevel), "undo");
+		if (a) undo_action = G_SIMPLE_ACTION(a);
+		a = g_action_map_lookup_action(G_ACTION_MAP(toplevel), "redo");
+		if (a) redo_action = G_SIMPLE_ACTION(a);
+	}
 
 	g_signal_connect_after(G_OBJECT(buffer), "insert-text",
 		G_CALLBACK(cb_insert_text), NULL);
@@ -305,7 +305,6 @@ gboolean undo_undo_real(GtkTextBuffer *buffer)
 
 	undo_flush_temporal_buffer(buffer);
 	if (g_list_length(undo_list)) {
-//		undo_block_signal(buffer);
 		ui = g_list_last(undo_list)->data;
 		gtk_text_buffer_get_iter_at_offset(buffer, &start_iter, ui->start);
 		switch (ui->command) {
@@ -320,13 +319,12 @@ gboolean undo_undo_real(GtkTextBuffer *buffer)
 		undo_list = g_list_delete_link(undo_list, g_list_last(undo_list));
 DV(g_print("cb_edit_undo: undo left = %d, redo left = %d\n",
 g_list_length(undo_list), g_list_length(redo_list)));
-//		undo_unblock_signal(buffer);
 		if (g_list_length(undo_list)) {
 			if (((UndoInfo *)g_list_last(undo_list)->data)->seq)
 				return TRUE;
 		} else
-			gtk_widget_set_sensitive(undo_w, FALSE);
-		gtk_widget_set_sensitive(redo_w, TRUE);
+			set_undo_sensitive(FALSE);
+		set_redo_sensitive(TRUE);
 		if (ui->command == DEL)
 			gtk_text_buffer_get_iter_at_offset(buffer, &start_iter, ui->start);
 		gtk_text_buffer_place_cursor(buffer, &start_iter);
@@ -342,7 +340,6 @@ gboolean undo_redo_real(GtkTextBuffer *buffer)
 	UndoInfo *ri;
 
 	if (g_list_length(redo_list)) {
-//		undo_block_signal(buffer);
 		ri = g_list_last(redo_list)->data;
 		gtk_text_buffer_get_iter_at_offset(buffer, &start_iter, ri->start);
 		switch (ri->command) {
@@ -357,14 +354,13 @@ gboolean undo_redo_real(GtkTextBuffer *buffer)
 		redo_list = g_list_delete_link(redo_list, g_list_last(redo_list));
 DV(g_print("cb_edit_redo: undo left = %d, redo left = %d\n",
 g_list_length(undo_list), g_list_length(redo_list)));
-//		undo_unblock_signal(buffer);
 		if (ri->seq) {
 			undo_set_sequency(TRUE);
 			return TRUE;
 		}
 		if (!g_list_length(redo_list))
-			gtk_widget_set_sensitive(redo_w, FALSE);
-		gtk_widget_set_sensitive(undo_w, TRUE);
+			set_redo_sensitive(FALSE);
+		set_undo_sensitive(TRUE);
 		gtk_text_buffer_place_cursor(buffer, &start_iter);
 		scroll_to_cursor(buffer, 0.05);
 	}
