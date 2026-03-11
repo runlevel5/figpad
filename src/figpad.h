@@ -44,8 +44,9 @@
 #define ENABLE_STATISTICS 1
 #endif
 
+/* XINPUT2 is not used in GTK4 */
 #ifndef ENABLE_XINPUT2
-#define ENABLE_XINPUT2 1
+#define ENABLE_XINPUT2 0
 #endif
 
 #include "window.h"
@@ -66,8 +67,6 @@
 #include "utils.h"
 #include "emacs.h"
 #include "gtkprint.h"
-#include <gdk/gdkkeysyms-compat.h>
-
 typedef struct {
 	FileInfo *fi;
 	MainWin *mw;
