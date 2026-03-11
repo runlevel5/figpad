@@ -112,32 +112,39 @@ static CharsetTable *get_charset_table(void)
 static void toggle_sensitivity(GtkWidget *entry)
 {
 	gtk_dialog_set_response_sensitive(
-		GTK_DIALOG(gtk_widget_get_toplevel(entry)), GTK_RESPONSE_OK,
-		strlen(gtk_entry_get_text(GTK_ENTRY(entry))) ? TRUE : FALSE);
+		GTK_DIALOG(gtk_widget_get_root(entry)), GTK_RESPONSE_OK,
+		strlen(gtk_editable_get_text(GTK_EDITABLE(entry))) ? TRUE : FALSE);
 }
 
-static GtkWidget *menu_item_manual_charset;
-static GtkWidget *init_menu_item_manual_charset(gchar *manual_charset)
+/* Build the label for the "Other Codeset" combo row.
+ * Replaces the old GtkMenuItem-based approach (removed in GTK4). */
+static gchar *manual_charset_label = NULL;
+static gchar *get_manual_charset_label(gchar *manual_charset)
 {
-	static GtkLabel *label;
-	gchar *str;
-
 	if (other_codeset_title == NULL)
 		other_codeset_title = _("Other Codeset");
 
-	str = manual_charset
+	g_free(manual_charset_label);
+	manual_charset_label = manual_charset
 		? g_strdup_printf("%s (%s)", other_codeset_title, manual_charset)
 		: g_strdup_printf("%s...", other_codeset_title);
 
-	if (!menu_item_manual_charset) {
-		menu_item_manual_charset = gtk_menu_item_new_with_label(str);
-		label = GTK_LABEL(gtk_bin_get_child(GTK_BIN(menu_item_manual_charset)));
-	} else
-//		gtk_label_set_text(GTK_LABEL(GTK_BIN(menu_item_manual_charset)->child), str);
-		gtk_label_set_text(label, str);
-	g_free(str);
+	return manual_charset_label;
+}
 
-	return menu_item_manual_charset;
+/* Update the "Other Codeset" row label in the combo box store */
+static void update_manual_charset_row(GtkComboBox *option_menu, gchar *manual_charset)
+{
+	GtkTreeModel *tmodel = gtk_combo_box_get_model(option_menu);
+	GtkListStore *store = GTK_LIST_STORE(tmodel);
+	GtkTreeIter iter;
+	gint n = gtk_tree_model_iter_n_children(tmodel, NULL);
+
+	/* The last row is always the "Other Codeset" entry */
+	if (n > 0 && gtk_tree_model_iter_nth_child(tmodel, &iter, NULL, n - 1)) {
+		gtk_list_store_set(store, &iter, 0,
+			get_manual_charset_label(manual_charset), -1);
+	}
 }
 
 static gboolean get_manual_charset(GtkComboBox *option_menu, FileInfo *selected_fi)
@@ -150,59 +157,65 @@ static gboolean get_manual_charset(GtkComboBox *option_menu, FileInfo *selected_
 	gchar *str;
 
 	dialog = gtk_dialog_new_with_buttons(other_codeset_title,
-			GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(option_menu))),
+			GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(option_menu))),
 			GTK_DIALOG_DESTROY_WITH_PARENT,
 			_("_Cancel"), GTK_RESPONSE_CANCEL,
 			_("_OK"), GTK_RESPONSE_OK,
 			NULL);
 	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
-	gtk_window_set_position(GTK_WINDOW(dialog), GTK_WIN_POS_MOUSE);
 
 	vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-	gtk_container_set_border_width(GTK_CONTAINER(vbox), 8);
-	gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), vbox, FALSE, FALSE, 0);
+	gtk_widget_set_margin_start(vbox, 8);
+	gtk_widget_set_margin_end(vbox, 8);
+	gtk_widget_set_margin_top(vbox, 8);
+	gtk_widget_set_margin_bottom(vbox, 8);
+	gtk_box_append(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), vbox);
 
 	label = gtk_label_new_with_mnemonic(_("Code_set:"));
-	gtk_misc_set_alignment(GTK_MISC(label), 0.0, 0.0);
-	gtk_box_pack_start(GTK_BOX(vbox), label, FALSE, FALSE, 5);
+	gtk_widget_set_halign(label, GTK_ALIGN_START);
+	gtk_widget_set_valign(label, GTK_ALIGN_START);
+	gtk_widget_set_margin_top(label, 5);
+	gtk_widget_set_margin_bottom(label, 5);
+	gtk_box_append(GTK_BOX(vbox), label);
 
 	entry = gtk_entry_new();
 	gtk_widget_set_hexpand (entry, TRUE);
 	gtk_widget_set_vexpand (entry, TRUE);
 	gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
 	gtk_label_set_mnemonic_widget(GTK_LABEL(label), entry);
-	gtk_box_pack_start(GTK_BOX(vbox), entry, FALSE, FALSE, 5);
+	gtk_widget_set_margin_top(entry, 5);
+	gtk_widget_set_margin_bottom(entry, 5);
+	gtk_box_append(GTK_BOX(vbox), entry);
 
 	gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_OK, FALSE);
 	g_signal_connect_after(G_OBJECT(entry), "changed",
 		G_CALLBACK(toggle_sensitivity), NULL);
 	if (selected_fi->charset_flag)
-		gtk_entry_set_text(GTK_ENTRY(entry), selected_fi->charset);
+		gtk_editable_set_text(GTK_EDITABLE(entry), selected_fi->charset);
 
-	gtk_widget_show_all(vbox);
-
-	if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
-		g_convert("TEST", -1, "UTF-8", gtk_entry_get_text(GTK_ENTRY(entry)), NULL, NULL, &err);
+	/* TODO: convert to async dialog API in a future cleanup pass */
+	if (run_dialog_sync(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+		g_convert("TEST", -1, "UTF-8", gtk_editable_get_text(GTK_EDITABLE(entry)), NULL, NULL, &err);
 		if (err) {
 			g_error_free(err);
 			gtk_widget_hide(dialog);
-			str = g_strdup_printf(_("'%s' is not supported"), gtk_entry_get_text(GTK_ENTRY(entry)));
-			run_dialog_message(gtk_widget_get_toplevel(GTK_WIDGET(option_menu)),
+			str = g_strdup_printf(_("'%s' is not supported"), gtk_editable_get_text(GTK_EDITABLE(entry)));
+			run_dialog_message(GTK_WIDGET(gtk_widget_get_root(GTK_WIDGET(option_menu))),
 				GTK_MESSAGE_ERROR, str);
 			g_free(str);
 		} else {
 			g_free(selected_fi->charset);
-			selected_fi->charset = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry)));
+			selected_fi->charset = g_strdup(gtk_editable_get_text(GTK_EDITABLE(entry)));
 			selected_fi->charset_flag = TRUE;
-			gtk_widget_destroy(dialog);
+			gtk_window_destroy(GTK_WINDOW(dialog));
 
-			init_menu_item_manual_charset(selected_fi->charset_flag
-				? selected_fi->charset : NULL);
+			update_manual_charset_row(option_menu,
+				selected_fi->charset_flag ? selected_fi->charset : NULL);
 
 			return TRUE;
 		}
 	}
-	gtk_widget_destroy(dialog);
+	gtk_window_destroy(GTK_WINDOW(dialog));
 
 	return FALSE;
 }
@@ -253,10 +266,9 @@ static GtkWidget *create_charset_menu(FileInfo *selected_fi)
 		gtk_list_store_append (store, &iter);
 		gtk_list_store_set (store, &iter, 0, ctable->str[i], -1);
 	}
-	menu_item_manual_charset = NULL;
 	gtk_list_store_append (store, &iter);
-	gtk_list_store_set (store, &iter, 0, gtk_menu_item_get_label(GTK_MENU_ITEM(init_menu_item_manual_charset(selected_fi->charset_flag
-			? selected_fi->charset : NULL))), -1);
+	gtk_list_store_set (store, &iter, 0, get_manual_charset_label(
+			selected_fi->charset_flag ? selected_fi->charset : NULL), -1);
 
 	charset_menu_init_flag = TRUE;
 	g_signal_connect(G_OBJECT(option_menu), "changed",
@@ -274,7 +286,7 @@ static GtkWidget *create_charset_menu(FileInfo *selected_fi)
 			g_free(selected_fi->charset);
 			selected_fi->charset = NULL;
 		} else if (i == ctable->num && selected_fi->charset_flag == FALSE) {
-			init_menu_item_manual_charset(selected_fi->charset);
+			update_manual_charset_row(GTK_COMBO_BOX(option_menu), selected_fi->charset);
 		}
 		i += mode;
 	}
@@ -288,7 +300,6 @@ static GtkWidget *create_charset_menu(FileInfo *selected_fi)
 static GtkWidget *create_file_selector(FileInfo *selected_fi)
 {
 	GtkWidget *selector;
-	GtkWidget *align;
 	GtkWidget *table;
 	GtkWidget *label;
 	GtkWidget *option_menu_charset;
@@ -304,10 +315,13 @@ static GtkWidget *create_file_selector(FileInfo *selected_fi)
 		NULL);
 	gtk_dialog_set_default_response(GTK_DIALOG(selector), GTK_RESPONSE_OK);
 
-	align = gtk_alignment_new(1, 0, 0, 0);
-	gtk_file_chooser_set_extra_widget(GTK_FILE_CHOOSER(selector), align);
+	/* Pack charset/lineend controls into the dialog content area
+	 * (gtk_file_chooser_set_extra_widget was removed in GTK4) */
 	table = gtk_grid_new();
-	gtk_container_add(GTK_CONTAINER(align), table);
+	gtk_widget_set_halign(table, GTK_ALIGN_END);
+	gtk_widget_set_margin_start(table, 8);
+	gtk_widget_set_margin_end(table, 8);
+	gtk_widget_set_margin_bottom(table, 8);
 	option_menu_charset = create_charset_menu(selected_fi);
 	label = gtk_label_new_with_mnemonic(_("C_haracter Coding:"));
 	gtk_label_set_mnemonic_widget(GTK_LABEL(label), option_menu_charset);
@@ -318,10 +332,13 @@ static GtkWidget *create_file_selector(FileInfo *selected_fi)
 		option_menu_lineend = create_lineend_menu(selected_fi);
 		gtk_grid_attach(GTK_GRID(table), option_menu_lineend, 2, 0, 1, 1);
 	}
-	gtk_widget_show_all(align);
+	gtk_box_append(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(selector))), table);
 
-	if (selected_fi->filename)
-		gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(selector), selected_fi->filename);
+	if (selected_fi->filename) {
+		GFile *file = g_file_new_for_path(selected_fi->filename);
+		gtk_file_chooser_set_file(GTK_FILE_CHOOSER(selector), file, NULL);
+		g_object_unref(file);
+	}
 
 	return selector;
 }
@@ -348,23 +365,35 @@ FileInfo *get_fileinfo_from_selector(FileInfo *fi, gint requested_mode)
 		GTK_WINDOW(pub->mw->window));
 
 	do {
-		res = gtk_dialog_run(GTK_DIALOG(selector));
+		/* TODO: convert to async dialog API in a future cleanup pass */
+		res = run_dialog_sync(GTK_DIALOG(selector));
 		if (res == GTK_RESPONSE_OK) {
 			if (selected_fi->filename)
 				g_free(selected_fi->filename);
-			selected_fi->filename =
-				gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(selector));
-			if (g_file_test(selected_fi->filename, G_FILE_TEST_IS_DIR)) {
+
+			{
+				GFile *gfile = gtk_file_chooser_get_file(GTK_FILE_CHOOSER(selector));
+				selected_fi->filename = gfile ? g_file_get_path(gfile) : NULL;
+				if (gfile)
+					g_object_unref(gfile);
+			}
+
+			if (selected_fi->filename && g_file_test(selected_fi->filename, G_FILE_TEST_IS_DIR)) {
 				len = strlen(selected_fi->filename);
 				if (len < 1 || selected_fi->filename[len - 1] != G_DIR_SEPARATOR)
 					str = g_strconcat(selected_fi->filename, G_DIR_SEPARATOR_S, NULL);
 				else
 					str = g_strdup(selected_fi->filename);
-				gtk_file_chooser_set_filename(GTK_FILE_CHOOSER(selector), str);
+				{
+					GFile *dir_file = g_file_new_for_path(str);
+					gtk_file_chooser_set_file(GTK_FILE_CHOOSER(selector), dir_file, NULL);
+					g_object_unref(dir_file);
+				}
 				g_free(str);
 				continue;
 			}
-			if ((mode == SAVE) && g_file_test(selected_fi->filename, G_FILE_TEST_EXISTS)) {
+			if ((mode == SAVE) && selected_fi->filename &&
+			    g_file_test(selected_fi->filename, G_FILE_TEST_EXISTS)) {
 				basename = g_path_get_basename(selected_fi->filename);
 				str = g_strdup_printf(_("'%s' already exists. Overwrite?"), basename);
 				g_free(basename);
@@ -388,7 +417,7 @@ FileInfo *get_fileinfo_from_selector(FileInfo *fi, gint requested_mode)
 		g_free(selected_fi);
 	}
 
-	gtk_widget_destroy(selector);
+	gtk_window_destroy(GTK_WINDOW(selector));
 
 	return selected_fi;
 }
