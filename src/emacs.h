@@ -20,6 +20,8 @@
 #ifndef _EMACS_H
 #define _EMACS_H
 
+#if ENABLE_EMACS
 gboolean check_emacs_key_theme(GtkWindow *window, GtkUIManager *ifactory);
+#endif
 
 #endif /* _EMACS_H */
