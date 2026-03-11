@@ -136,7 +136,7 @@ static void parse_args(gint argc, gchar **argv, FileInfo *fi)
 	GOptionContext *context;
 	gchar *opt_codeset = NULL;
 	gint opt_tab_width = 0;
-	gboolean opt_jump = 0;
+	gint opt_jump = 0;
 	gboolean opt_version = FALSE;
 	GOptionEntry entries[] =
 	{
