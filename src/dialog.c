@@ -60,27 +60,23 @@ void run_dialog_message(GtkWidget *window,
 	gchar *message, ...)
 {
 	va_list ap;
-	GtkWidget *dialog;
 	gchar *str;
+	GtkAlertDialog *alert;
+
+	(void)type; /* GtkAlertDialog has no message-type icon */
 
 	va_start(ap, message);
 		str = g_strdup_vprintf(message, ap);
 	va_end(ap);
 
-	dialog = gtk_message_dialog_new(GTK_WINDOW(window),
-		GTK_DIALOG_DESTROY_WITH_PARENT,
-		type,
-		GTK_BUTTONS_NONE,
-		"%s", str);
-	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
-	gtk_dialog_add_buttons(GTK_DIALOG(dialog),
-		_("_OK"), GTK_RESPONSE_CANCEL, NULL);
-	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_CANCEL);
+	alert = gtk_alert_dialog_new("%s", str);
+	gtk_alert_dialog_set_buttons(alert, (const char *[]){ _("_OK"), NULL });
+	gtk_alert_dialog_set_default_button(alert, 0);
+	gtk_alert_dialog_set_cancel_button(alert, 0);
 	g_free(str);
 
-	/* TODO: convert to async dialog API in a future cleanup pass */
-	run_dialog_sync(GTK_DIALOG(dialog));
-	gtk_window_destroy(GTK_WINDOW(dialog));
+	gtk_alert_dialog_show(alert, GTK_WINDOW(window));
+	g_object_unref(alert);
 }
 
 GtkWidget *create_dialog_message_question(GtkWidget *window, gchar *message, ...)
