@@ -273,8 +273,8 @@ gchar * file_stats(GtkWidget *view, FileInfo *fi)
 
 	g_sprintf(
 		toret,
-		_("<u>Totals count</u>\nChars: %7d Words: %6d Lines: %5d\n\n"
-		"<u>Selection</u>\nChars: %7d Words: %6d Lines: %5d\n"),
+		_("Totals\nChars: %7d Words: %6d Lines: %5d\n\n"
+		"Selection\nChars: %7d Words: %6d Lines: %5d\n"),
 		totalChars,
 		totalWords,
 		totalLines,
