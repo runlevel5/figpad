@@ -17,9 +17,7 @@
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include <gtk/gtk.h>
-#include "view.h"
-#include "undo.h"
+#include "figpad.h"
 
 #define DV(x)
 
@@ -116,7 +114,7 @@ static void undo_create_undo_info(GtkTextBuffer *buffer, gchar command, gint sta
 				break;
 			default:
 				if (start == ui_tmp->end)
-					if (keyval && keyval < 0xF000)
+					if (keyval && keyval < KEYVAL_NON_CHAR_THRESHOLD)
 						switch (prev_keyval) {
 						case GDK_KEY_Return:
 						case GDK_KEY_Tab:
@@ -151,7 +149,7 @@ static void undo_create_undo_info(GtkTextBuffer *buffer, gchar command, gint sta
 		undo_set_sequency(TRUE);
 
 	if (end - start == 1 &&
-		((keyval && keyval < 0xF000) ||
+		((keyval && keyval < KEYVAL_NON_CHAR_THRESHOLD) ||
 		  keyval == GDK_KEY_BackSpace || keyval == GDK_KEY_Delete || keyval == GDK_KEY_Tab)) {
 		ui_tmp->command = command;
 		ui_tmp->start = start;
@@ -326,7 +324,7 @@ g_list_length(undo_list), g_list_length(redo_list)));
 		if (ui->command == DEL)
 			gtk_text_buffer_get_iter_at_offset(buffer, &start_iter, ui->start);
 		gtk_text_buffer_place_cursor(buffer, &start_iter);
-		scroll_to_cursor(buffer, 0.05);
+		scroll_to_cursor(buffer, SCROLL_MARGIN_NARROW);
 	}
 	undo_check_modified_step(buffer);
 	return FALSE;
@@ -360,7 +358,7 @@ g_list_length(undo_list), g_list_length(redo_list)));
 			set_redo_sensitive(FALSE);
 		set_undo_sensitive(TRUE);
 		gtk_text_buffer_place_cursor(buffer, &start_iter);
-		scroll_to_cursor(buffer, 0.05);
+		scroll_to_cursor(buffer, SCROLL_MARGIN_NARROW);
 	}
 	undo_check_modified_step(buffer);
 	return FALSE;

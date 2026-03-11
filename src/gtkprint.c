@@ -96,7 +96,7 @@ static void cb_draw_page(GtkPrintOperation *op,
 	layout_lh = gtk_print_context_create_pango_layout(ctx);
 	pango_layout_set_font_description(layout_lh, font_desc);
 	pango_layout_set_text(layout_lh, page_title, -1);
-	cairo_move_to(cr, 0, - 72 / 25.4 * 10);
+	cairo_move_to(cr, 0, -PRINT_HEADER_OFFSET_PT);
 	pango_cairo_show_layout(cr, layout_lh);
 
 	page_text = g_strdup_printf("%d / %d", page_nr + 1, n_pages);
@@ -105,7 +105,7 @@ static void cb_draw_page(GtkPrintOperation *op,
 	pango_layout_set_text(layout_rh, page_text, -1);
 	pango_layout_get_size(layout_rh, &layout_width, NULL);
 	cairo_move_to(cr,
-		page_width - layout_width / PANGO_SCALE, - 72 / 25.4 * 10);
+		page_width - layout_width / PANGO_SCALE, -PRINT_HEADER_OFFSET_PT);
 	pango_cairo_show_layout(cr, layout_rh);
 	g_free(page_text);
 
@@ -146,10 +146,10 @@ static GtkPrintOperation *create_print_operation(GtkTextView *text_view)
 
 	if (!page_setup) {
 		page_setup = gtk_page_setup_new();
-		gtk_page_setup_set_top_margin(page_setup, 25.0, GTK_UNIT_MM);
-		gtk_page_setup_set_bottom_margin(page_setup, 20.0, GTK_UNIT_MM);
-		gtk_page_setup_set_left_margin(page_setup, 20.0, GTK_UNIT_MM);
-		gtk_page_setup_set_right_margin(page_setup, 20.0, GTK_UNIT_MM);
+		gtk_page_setup_set_top_margin(page_setup, PRINT_MARGIN_TOP_MM, GTK_UNIT_MM);
+		gtk_page_setup_set_bottom_margin(page_setup, PRINT_MARGIN_BOTTOM_MM, GTK_UNIT_MM);
+		gtk_page_setup_set_left_margin(page_setup, PRINT_MARGIN_LEFT_MM, GTK_UNIT_MM);
+		gtk_page_setup_set_right_margin(page_setup, PRINT_MARGIN_RIGHT_MM, GTK_UNIT_MM);
 	}
 	gtk_print_operation_set_default_page_setup(op, page_setup);
 

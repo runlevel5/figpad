@@ -40,6 +40,34 @@
 #define ENABLE_STATISTICS 1
 #endif
 
+/* ---- application-wide constants ---- */
+
+/* Default window geometry */
+#define DEFAULT_WINDOW_WIDTH   600
+#define DEFAULT_WINDOW_HEIGHT  400
+
+/* Scroll-to-cursor margins (fraction of visible area) */
+#define SCROLL_MARGIN_NARROW   0.05
+#define SCROLL_MARGIN_WIDE     0.25
+
+/* Print header offset: 10 mm expressed in points (72pt/in, 25.4mm/in) */
+#define PRINT_HEADER_OFFSET_PT (72.0 / 25.4 * 10.0)
+
+/* Print page margins (millimetres) */
+#define PRINT_MARGIN_TOP_MM    25.0
+#define PRINT_MARGIN_BOTTOM_MM 20.0
+#define PRINT_MARGIN_LEFT_MM   20.0
+#define PRINT_MARGIN_RIGHT_MM  20.0
+
+/* Keyval threshold — values below this are printable characters */
+#define KEYVAL_NON_CHAR_THRESHOLD 0xF000
+
+/* Delay (ms) before forcing focus back to the text view after a menu action */
+#define MENU_REFOCUS_DELAY_MS  50
+
+/* Minimum width for the search/replace dialog */
+#define SEARCH_DIALOG_MIN_WIDTH 400
+
 #include "window.h"
 #include "menu.h"
 #include "callback.h"

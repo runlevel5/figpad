@@ -116,7 +116,7 @@ gboolean document_search_real(GtkWidget *textview, gint direction)
 	if (res) {
 		gtk_text_buffer_place_cursor(textbuffer, &match_start);
 		gtk_text_buffer_move_mark_by_name(textbuffer, "insert", &match_end);
-		scroll_to_cursor(textbuffer, 0.05);
+		scroll_to_cursor(textbuffer, SCROLL_MARGIN_NARROW);
 	}
 	else if (direction == 0)
 		run_dialog_message(GTK_WIDGET(gtk_widget_get_root(textview)), GTK_MESSAGE_WARNING,
@@ -289,7 +289,7 @@ gboolean run_dialog_search(GtkWidget *textview, gint mode)
 	gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
 	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
 	gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
-	gtk_widget_set_size_request(dialog, 400, -1);
+	gtk_widget_set_size_request(dialog, SEARCH_DIALOG_MIN_WIDTH, -1);
 
 	content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
 	gtk_widget_set_margin_start(content_box, 12);
@@ -546,7 +546,7 @@ void run_dialog_jump_to(GtkWidget *textview)
 		gtk_text_buffer_get_iter_at_line(textbuffer, &iter,
 			gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinner)) - 1);
 		gtk_text_buffer_place_cursor(textbuffer, &iter);
-		scroll_to_cursor(textbuffer, 0.25);
+		scroll_to_cursor(textbuffer, SCROLL_MARGIN_WIDE);
 	}
 
 	gtk_window_destroy(GTK_WINDOW(dialog));

@@ -86,8 +86,8 @@ void save_config_file(void)
 	gtk_window_get_default_size(GTK_WINDOW(pub->mw->window), &width, &height);
 	if (width <= 0 || height <= 0) {
 		/* fallback: just keep what we had — window was never resized */
-		width = 600;
-		height = 400;
+		width = DEFAULT_WINDOW_WIDTH;
+		height = DEFAULT_WINDOW_HEIGHT;
 	}
 
 	/* Font is tracked manually now — will be set up in font.c port.
@@ -206,8 +206,8 @@ static void on_activate(GtkApplication *app, gpointer user_data)
 	gtk_window_set_icon_name(GTK_WINDOW(pub->mw->window), PACKAGE);
 
 	conf = g_malloc(sizeof(Conf));
-	conf->width       = 600;
-	conf->height      = 400;
+	conf->width       = DEFAULT_WINDOW_WIDTH;
+	conf->height      = DEFAULT_WINDOW_HEIGHT;
 	conf->fontname    = g_strdup("Monospace 12");
 	conf->wordwrap    = FALSE;
 	conf->linenumbers = FALSE;
@@ -262,7 +262,7 @@ static void on_activate(GtkApplication *app, gpointer user_data)
 
 		gtk_text_buffer_get_iter_at_line(pub->mw->buffer, &iter, jump_linenum - 1);
 		gtk_text_buffer_place_cursor(pub->mw->buffer, &iter);
-		scroll_to_cursor(pub->mw->buffer, 0.25);
+		scroll_to_cursor(pub->mw->buffer, SCROLL_MARGIN_WIDE);
 	}
 
 	set_main_window_title();

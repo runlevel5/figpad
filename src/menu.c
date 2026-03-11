@@ -55,7 +55,7 @@ static gboolean refocus_textview_timeout(gpointer data)
 
 static void schedule_refocus(void)
 {
-	g_timeout_add(50, refocus_textview_timeout, NULL);
+	g_timeout_add(MENU_REFOCUS_DELAY_MS, refocus_textview_timeout, NULL);
 }
 
 /*
