@@ -306,7 +306,7 @@ void on_option_auto_indent(void)
 
 void on_help_about(void)
 {
-	const gchar *copyright = "Copyright \xc2\xa9 2025 Trung L\xc3\xaa\n\nBased on l3afpad by:\nCopyright \xc2\xa9 2014 Steven Honeyman\nCopyright \xc2\xa9 2012 Yoo, Taik-Yon\n\nBased on leafpad by:\nCopyright \xc2\xa9 2004-2010 Tarot Osuji\nCopyright \xc2\xa9 2011 Wen-Yen Chuang\nCopyright \xc2\xa9 2011 Jack Gandy";
+	const gchar *copyright = "Copyright \xc2\xa9 2026 Trung L\xc3\xaa\n\nBased on l3afpad by:\nCopyright \xc2\xa9 2014 Steven Honeyman\nCopyright \xc2\xa9 2012 Yoo, Taik-Yon\n\nBased on leafpad by:\nCopyright \xc2\xa9 2004-2010 Tarot Osuji\nCopyright \xc2\xa9 2011 Wen-Yen Chuang\nCopyright \xc2\xa9 2011 Jack Gandy";
 	const gchar *comments = _("GTK4 based simple text editor");
 	const gchar *authors[] = {
 		"Trung L\xc3\xaa <8@tle.id.au>",
