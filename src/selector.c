@@ -100,10 +100,11 @@ static CharsetTable *get_charset_table(void)
 	return ctable;
 }
 
+static GtkWidget *charset_dialog_ok_button;
+
 static void toggle_sensitivity(GtkWidget *entry)
 {
-	gtk_dialog_set_response_sensitive(
-		GTK_DIALOG(gtk_widget_get_root(entry)), GTK_RESPONSE_OK,
+	gtk_widget_set_sensitive(charset_dialog_ok_button,
 		strlen(gtk_editable_get_text(GTK_EDITABLE(entry))) ? TRUE : FALSE);
 }
 
@@ -123,44 +124,64 @@ static gchar *get_manual_charset_label(gchar *manual_charset)
 	return manual_charset_label;
 }
 
-/* Update the "Other Codeset" row label in the combo box store */
-static void update_manual_charset_row(GtkComboBox *option_menu, gchar *manual_charset)
+/* Update the "Other Codeset" row label in the GtkStringList model */
+static void update_manual_charset_row(GtkDropDown *dropdown, gchar *manual_charset)
 {
-	GtkTreeModel *tmodel = gtk_combo_box_get_model(option_menu);
-	GtkListStore *store = GTK_LIST_STORE(tmodel);
-	GtkTreeIter iter;
-	gint n = gtk_tree_model_iter_n_children(tmodel, NULL);
+	GtkStringList *slist = GTK_STRING_LIST(gtk_drop_down_get_model(dropdown));
+	guint n = g_list_model_get_n_items(G_LIST_MODEL(slist));
 
 	/* The last row is always the "Other Codeset" entry */
-	if (n > 0 && gtk_tree_model_iter_nth_child(tmodel, &iter, NULL, n - 1)) {
-		gtk_list_store_set(store, &iter, 0,
-			get_manual_charset_label(manual_charset), -1);
+	if (n > 0) {
+		const char *new_label = get_manual_charset_label(manual_charset);
+		gtk_string_list_splice(slist, n - 1, 1, (const char * const[]){ new_label, NULL });
 	}
 }
 
-static gboolean get_manual_charset(GtkComboBox *option_menu, FileInfo *selected_fi)
+typedef struct {
+	GMainLoop *loop;
+	gboolean accepted;
+} ManualCharsetData;
+
+static void on_manual_charset_accept(GtkWidget *widget, gpointer user_data)
+{
+	(void)widget;
+	ManualCharsetData *data = user_data;
+	data->accepted = TRUE;
+	g_main_loop_quit(data->loop);
+}
+
+static gboolean get_manual_charset(GtkDropDown *dropdown, FileInfo *selected_fi)
 {
 	GtkWidget *dialog;
+	GtkWidget *content_box;
 	GtkWidget *vbox;
+	GtkWidget *button_box;
+	GtkWidget *cancel_button;
+	GtkWidget *ok_button;
 	GtkWidget *label;
 	GtkWidget *entry;
 	GError *err = NULL;
 	gchar *str;
+	ManualCharsetData data;
 
-	dialog = gtk_dialog_new_with_buttons(other_codeset_title,
-			GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(option_menu))),
-			GTK_DIALOG_DESTROY_WITH_PARENT,
-			_("_Cancel"), GTK_RESPONSE_CANCEL,
-			_("_OK"), GTK_RESPONSE_OK,
-			NULL);
-	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
+	/* Plain GtkWindow instead of deprecated GtkDialog */
+	dialog = gtk_window_new();
+	gtk_window_set_title(GTK_WINDOW(dialog), other_codeset_title);
+	gtk_window_set_transient_for(GTK_WINDOW(dialog),
+		GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(dropdown))));
+	gtk_window_set_modal(GTK_WINDOW(dialog), TRUE);
+	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
+	gtk_window_set_destroy_with_parent(GTK_WINDOW(dialog), TRUE);
+
+	content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+	gtk_widget_set_margin_start(content_box, 12);
+	gtk_widget_set_margin_end(content_box, 12);
+	gtk_widget_set_margin_top(content_box, 12);
+	gtk_widget_set_margin_bottom(content_box, 12);
+	gtk_window_set_child(GTK_WINDOW(dialog), content_box);
 
 	vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-	gtk_widget_set_margin_start(vbox, 8);
-	gtk_widget_set_margin_end(vbox, 8);
-	gtk_widget_set_margin_top(vbox, 8);
-	gtk_widget_set_margin_bottom(vbox, 8);
-	gtk_box_append(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), vbox);
+	gtk_box_append(GTK_BOX(content_box), vbox);
 
 	label = gtk_label_new_with_mnemonic(_("Code_set:"));
 	gtk_widget_set_halign(label, GTK_ALIGN_START);
@@ -170,28 +191,58 @@ static gboolean get_manual_charset(GtkComboBox *option_menu, FileInfo *selected_
 	gtk_box_append(GTK_BOX(vbox), label);
 
 	entry = gtk_entry_new();
-	gtk_widget_set_hexpand (entry, TRUE);
-	gtk_widget_set_vexpand (entry, TRUE);
-	gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
+	gtk_widget_set_hexpand(entry, TRUE);
+	gtk_widget_set_vexpand(entry, TRUE);
 	gtk_label_set_mnemonic_widget(GTK_LABEL(label), entry);
 	gtk_widget_set_margin_top(entry, 5);
 	gtk_widget_set_margin_bottom(entry, 5);
 	gtk_box_append(GTK_BOX(vbox), entry);
 
-	gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog), GTK_RESPONSE_OK, FALSE);
+	/* Action buttons */
+	button_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+	gtk_widget_set_halign(button_box, GTK_ALIGN_END);
+	gtk_box_append(GTK_BOX(content_box), button_box);
+
+	cancel_button = gtk_button_new_with_mnemonic(_("_Cancel"));
+	gtk_box_append(GTK_BOX(button_box), cancel_button);
+
+	ok_button = gtk_button_new_with_mnemonic(_("_OK"));
+	gtk_widget_add_css_class(ok_button, "suggested-action");
+	gtk_box_append(GTK_BOX(button_box), ok_button);
+	charset_dialog_ok_button = ok_button;
+
+	gtk_widget_set_sensitive(ok_button, FALSE);
 	g_signal_connect_after(G_OBJECT(entry), "changed",
 		G_CALLBACK(toggle_sensitivity), NULL);
 	if (selected_fi->charset_flag)
 		gtk_editable_set_text(GTK_EDITABLE(entry), selected_fi->charset);
 
-	/* TODO: convert to async dialog API in a future cleanup pass */
-	if (run_dialog_sync(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+	gtk_entry_set_activates_default(GTK_ENTRY(entry), TRUE);
+
+	/* Sync-loop plumbing */
+	data.loop = g_main_loop_new(NULL, FALSE);
+	data.accepted = FALSE;
+
+	g_signal_connect_swapped(cancel_button, "clicked",
+		G_CALLBACK(g_main_loop_quit), data.loop);
+	g_signal_connect_swapped(dialog, "close-request",
+		G_CALLBACK(g_main_loop_quit), data.loop);
+	g_signal_connect(ok_button, "clicked",
+		G_CALLBACK(on_manual_charset_accept), &data);
+
+	gtk_window_set_default_widget(GTK_WINDOW(dialog), ok_button);
+	gtk_window_present(GTK_WINDOW(dialog));
+	g_main_loop_run(data.loop);
+	g_main_loop_unref(data.loop);
+	charset_dialog_ok_button = NULL;
+
+	if (data.accepted) {
 		g_convert("TEST", -1, "UTF-8", gtk_editable_get_text(GTK_EDITABLE(entry)), NULL, NULL, &err);
 		if (err) {
 			g_error_free(err);
 			gtk_widget_set_visible(dialog, FALSE);
 			str = g_strdup_printf(_("'%s' is not supported"), gtk_editable_get_text(GTK_EDITABLE(entry)));
-			run_dialog_message(GTK_WIDGET(gtk_widget_get_root(GTK_WIDGET(option_menu))),
+			run_dialog_message(GTK_WIDGET(gtk_widget_get_root(GTK_WIDGET(dropdown))),
 				GTK_MESSAGE_ERROR, str);
 			g_free(str);
 		} else {
@@ -200,7 +251,7 @@ static gboolean get_manual_charset(GtkComboBox *option_menu, FileInfo *selected_
 			selected_fi->charset_flag = TRUE;
 			gtk_window_destroy(GTK_WINDOW(dialog));
 
-			update_manual_charset_row(option_menu,
+			update_manual_charset_row(dropdown,
 				selected_fi->charset_flag ? selected_fi->charset : NULL);
 
 			return TRUE;
@@ -213,13 +264,14 @@ static gboolean get_manual_charset(GtkComboBox *option_menu, FileInfo *selected_
 
 gboolean charset_menu_init_flag;
 
-static void cb_select_charset(GtkComboBox *option_menu, FileInfo *selected_fi)
+static void cb_select_charset(GtkDropDown *dropdown, GParamSpec *pspec, FileInfo *selected_fi)
 {
 	CharsetTable *ctable;
 	static guint index_history = 0, prev_history;
 
+	(void)pspec;
 	prev_history = index_history;
-	index_history = gtk_combo_box_get_active(option_menu);
+	index_history = gtk_drop_down_get_selected(dropdown);
 	if (!charset_menu_init_flag) {
 		ctable = get_charset_table();
 		if (index_history < ctable->num + mode) {
@@ -232,40 +284,34 @@ static void cb_select_charset(GtkComboBox *option_menu, FileInfo *selected_fi)
 					g_strdup(ctable->charset[index_history - mode]);
 			}
 		} else
-			if (!get_manual_charset(option_menu, selected_fi)) {
+			if (!get_manual_charset(dropdown, selected_fi)) {
 				index_history = prev_history;
-				gtk_combo_box_set_active(option_menu, index_history);
+				gtk_drop_down_set_selected(dropdown, index_history);
 			}
 	}
 }
 
 static GtkWidget *create_charset_menu(FileInfo *selected_fi)
 {
-	GtkListStore *store = gtk_list_store_new (1, G_TYPE_STRING);
-	GtkTreeIter iter;
-	GtkCellRenderer *renderer = gtk_cell_renderer_text_new ();
-	GtkWidget *option_menu = gtk_combo_box_new_with_model (GTK_TREE_MODEL (store));
+	GtkStringList *slist = gtk_string_list_new(NULL);
+	GtkWidget *dropdown;
 	CharsetTable *ctable;
 	guint i;
 
-	if (mode == OPEN) {
-		gtk_list_store_append (store, &iter);
-		gtk_list_store_set (store, &iter, 0, _("Auto-Detect"), -1);
-	}
+	if (mode == OPEN)
+		gtk_string_list_append(slist, _("Auto-Detect"));
 	ctable = get_charset_table();
-	for (i = 0; i < ctable->num; i++) {
-		gtk_list_store_append (store, &iter);
-		gtk_list_store_set (store, &iter, 0, ctable->str[i], -1);
-	}
-	gtk_list_store_append (store, &iter);
-	gtk_list_store_set (store, &iter, 0, get_manual_charset_label(
-			selected_fi->charset_flag ? selected_fi->charset : NULL), -1);
+	for (i = 0; i < ctable->num; i++)
+		gtk_string_list_append(slist, ctable->str[i]);
+	gtk_string_list_append(slist, get_manual_charset_label(
+			selected_fi->charset_flag ? selected_fi->charset : NULL));
+
+	dropdown = gtk_drop_down_new(G_LIST_MODEL(slist), NULL);
 
 	charset_menu_init_flag = TRUE;
-	g_signal_connect(G_OBJECT(option_menu), "changed",
+	g_signal_connect(dropdown, "notify::selected",
 		G_CALLBACK(cb_select_charset), selected_fi);
-	gtk_cell_layout_pack_start (GTK_CELL_LAYOUT (option_menu), renderer, FALSE);
-	gtk_cell_layout_set_attributes (GTK_CELL_LAYOUT (option_menu), renderer, "text", 0, NULL);
+
 	i = 0;
 	if (selected_fi->charset) {
 		do {
@@ -277,15 +323,15 @@ static GtkWidget *create_charset_menu(FileInfo *selected_fi)
 			g_free(selected_fi->charset);
 			selected_fi->charset = NULL;
 		} else if (i == ctable->num && selected_fi->charset_flag == FALSE) {
-			update_manual_charset_row(GTK_COMBO_BOX(option_menu), selected_fi->charset);
+			update_manual_charset_row(GTK_DROP_DOWN(dropdown), selected_fi->charset);
 		}
 		i += mode;
 	}
 	if (mode == SAVE || selected_fi->charset_flag)
-		gtk_combo_box_set_active(GTK_COMBO_BOX(option_menu), i);
+		gtk_drop_down_set_selected(GTK_DROP_DOWN(dropdown), i);
 	charset_menu_init_flag = FALSE;
 
-	return option_menu;
+	return dropdown;
 }
 
 static GtkWidget *create_file_selector(FileInfo *selected_fi)
