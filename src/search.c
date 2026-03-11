@@ -125,7 +125,7 @@ gboolean document_search_real(GtkWidget *textview, gint direction)
 		scroll_to_cursor(textbuffer, 0.05);
 	}
 	else if (direction == 0)
-		run_dialog_message(gtk_widget_get_toplevel(textview), GTK_MESSAGE_WARNING,
+		run_dialog_message(GTK_WIDGET(gtk_widget_get_root(textview)), GTK_MESSAGE_WARNING,
 			_("Search string not found"));
 
 	return res;
@@ -178,11 +178,12 @@ static gint document_replace_real(GtkWidget *textview)
 		if (res) {
 			if (!replace_all) {
 				if (num == 0 && q_dialog == NULL)
+					/* TODO: convert to async dialog API in a future cleanup pass */
 					q_dialog = create_dialog_message_question(
-						gtk_widget_get_toplevel(textview), _("Replace?"));
+						GTK_WIDGET(gtk_widget_get_root(textview)), _("Replace?"));
 					GtkTextIter ins,bou;
 					gtk_text_buffer_get_selection_bounds(textbuffer, &ins, &bou);
-				switch (gtk_dialog_run(GTK_DIALOG(q_dialog))) {
+				switch (run_dialog_sync(GTK_DIALOG(q_dialog))) {
 				case GTK_RESPONSE_YES:
 					gtk_text_buffer_select_range(textbuffer, &ins, &bou);
 					break;
@@ -233,7 +234,7 @@ static gint document_replace_real(GtkWidget *textview)
 		hlight_toggle_searched(textbuffer);
 
 	if (q_dialog)
-		gtk_widget_destroy(q_dialog);
+		gtk_window_destroy(GTK_WINDOW(q_dialog));
 /*	if (strlen(string_replace)) {
 		replace_mode = TRUE;
 		hlight_searched_strings(textbuffer, string_replace);
@@ -241,7 +242,7 @@ static gint document_replace_real(GtkWidget *textview)
 	if (replace_all) {
 		gtk_text_buffer_get_iter_at_mark(textbuffer, &iter, mark_init);
 		gtk_text_buffer_place_cursor(textbuffer, &iter);
-		run_dialog_message(gtk_widget_get_toplevel(textview), GTK_MESSAGE_INFO,
+		run_dialog_message(GTK_WIDGET(gtk_widget_get_root(textview)), GTK_MESSAGE_INFO,
 			_("%d strings replaced"), num);
 		undo_set_sequency(FALSE);
 	}
@@ -257,14 +258,14 @@ static void toggle_sensitivity(GtkWidget *w, gint pos1, gint pos2, gint *pos3)
 {
 	if (pos3) {
 		if (!entry_len)
-			gtk_dialog_set_response_sensitive(GTK_DIALOG(gtk_widget_get_toplevel(w)),
+			gtk_dialog_set_response_sensitive(GTK_DIALOG(gtk_widget_get_root(w)),
 				GTK_RESPONSE_OK, TRUE);
 		entry_len += pos2;
 //		entry_len = entry_len + pos2;
 	} else {
 		entry_len = entry_len + pos1 - pos2;
 		if (!entry_len)
-			gtk_dialog_set_response_sensitive(GTK_DIALOG(gtk_widget_get_toplevel(w)),
+			gtk_dialog_set_response_sensitive(GTK_DIALOG(gtk_widget_get_root(w)),
 				GTK_RESPONSE_OK, FALSE);
 	}
 }
@@ -273,9 +274,9 @@ static void toggle_sensitivity(GtkWidget *w, gint pos1, gint pos2, gint *pos3)
 #if SEARCH_HISTORY
 static void toggle_sensitivity(GtkWidget *entry)
 {
-	gboolean has_text = *(gtk_entry_get_text(GTK_ENTRY(entry))) != '\0';
+	gboolean has_text = *(gtk_editable_get_text(GTK_EDITABLE(entry))) != '\0';
 	gtk_dialog_set_response_sensitive(
-		GTK_DIALOG(gtk_widget_get_toplevel(entry)), GTK_RESPONSE_OK,
+		GTK_DIALOG(gtk_widget_get_root(entry)), GTK_RESPONSE_OK,
 		(has_text) ? TRUE : FALSE);
 }
 #endif
@@ -293,7 +294,7 @@ static void toggle_check_all(GtkWidget *widget)
 gint run_dialog_search(GtkWidget *textview, gint mode)
 {
 	GtkWidget *dialog;
-	GtkWidget *table;
+	GtkWidget *grid;
 	GtkWidget *label_find, *label_replace;
 #if SEARCH_HISTORY
 	GtkWidget *combo_find, *combo_replace = NULL;
@@ -306,39 +307,50 @@ gint run_dialog_search(GtkWidget *textview, gint mode)
 
 	if (mode) {
 		dialog = gtk_dialog_new_with_buttons(_("Replace"),
-			GTK_WINDOW(gtk_widget_get_toplevel(textview)),
+			GTK_WINDOW(gtk_widget_get_root(textview)),
 			GTK_DIALOG_DESTROY_WITH_PARENT,
-			GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-			GTK_STOCK_FIND_AND_REPLACE, GTK_RESPONSE_OK,
+			_("_Cancel"), GTK_RESPONSE_CANCEL,
+			_("Find and _Replace"), GTK_RESPONSE_OK,
 			NULL);
-		gtk_container_set_border_width (GTK_CONTAINER(dialog), 4);
+		gtk_widget_set_margin_start(dialog, 4);
+		gtk_widget_set_margin_end(dialog, 4);
+		gtk_widget_set_margin_top(dialog, 4);
+		gtk_widget_set_margin_bottom(dialog, 4);
 		gtk_widget_set_size_request(dialog, 400, -1);
 	} else {
 		dialog = gtk_dialog_new_with_buttons(_("Find"),
-			GTK_WINDOW(gtk_widget_get_toplevel(textview)),
+			GTK_WINDOW(gtk_widget_get_root(textview)),
 			GTK_DIALOG_DESTROY_WITH_PARENT,
-			GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
-			GTK_STOCK_FIND, GTK_RESPONSE_OK,
+			_("_Cancel"), GTK_RESPONSE_CANCEL,
+			_("_Find"), GTK_RESPONSE_OK,
 			NULL);
-		gtk_container_set_border_width (GTK_CONTAINER(dialog), 4);
+		gtk_widget_set_margin_start(dialog, 4);
+		gtk_widget_set_margin_end(dialog, 4);
+		gtk_widget_set_margin_top(dialog, 4);
+		gtk_widget_set_margin_bottom(dialog, 4);
 		gtk_widget_set_size_request(dialog, 400, -1);
 	}
 
-	table = gtk_table_new(mode + 2, 2, FALSE);
-	 gtk_table_set_row_spacings(GTK_TABLE(table), 8);
-	 gtk_table_set_col_spacings(GTK_TABLE(table), 8);
-	 gtk_container_set_border_width(GTK_CONTAINER(table), 8);
-	 gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), table, FALSE, FALSE, 0);
+	grid = gtk_grid_new();
+	 gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
+	 gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+	 gtk_widget_set_margin_start(grid, 8);
+	 gtk_widget_set_margin_end(grid, 8);
+	 gtk_widget_set_margin_top(grid, 8);
+	 gtk_widget_set_margin_bottom(grid, 8);
+	 gtk_box_append(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid);
 	label_find = gtk_label_new_with_mnemonic(_("Fi_nd what:"));
-	 gtk_misc_set_alignment(GTK_MISC(label_find), 0, 0.5);
-	 gtk_table_attach_defaults(GTK_TABLE(table), label_find, 0, 1, 0, 1);
+	 gtk_widget_set_halign(label_find, GTK_ALIGN_START);
+	 gtk_grid_attach(GTK_GRID(grid), label_find, 0, 0, 1, 1);
 #if SEARCH_HISTORY
 	combo_find = create_combo_with_history (&find_history);
-	 gtk_table_attach_defaults(GTK_TABLE(table), combo_find, 1, 2, 0, 1);
-	 entry_find = gtk_bin_get_child(GTK_BIN(combo_find));
+	 gtk_widget_set_hexpand(combo_find, TRUE);
+	 gtk_grid_attach(GTK_GRID(grid), combo_find, 1, 0, 1, 1);
+	 entry_find = gtk_combo_box_get_child(GTK_COMBO_BOX(combo_find));
 #else
 	entry_find = gtk_entry_new();
-	 gtk_table_attach_defaults(GTK_TABLE(table), entry_find, 1, 2, 0, 1);
+	 gtk_widget_set_hexpand(entry_find, TRUE);
+	 gtk_grid_attach(GTK_GRID(grid), entry_find, 1, 0, 1, 1);
 #endif
 	 gtk_label_set_mnemonic_widget(GTK_LABEL(label_find), entry_find);
 #if !SEARCH_HISTORY
@@ -350,7 +362,7 @@ gint run_dialog_search(GtkWidget *textview, gint mode)
 	 g_signal_connect(G_OBJECT(entry_find), "delete-text",
 		G_CALLBACK(toggle_sensitivity), NULL);
 	 if (string_find) {
-		 gtk_entry_set_text(GTK_ENTRY(entry_find), string_find);
+		 gtk_editable_set_text(GTK_EDITABLE(entry_find), string_find);
 		 gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog),
 			GTK_RESPONSE_OK, TRUE);
 	 }
@@ -367,29 +379,31 @@ gint run_dialog_search(GtkWidget *textview, gint mode)
 		 g_free(string_find);
 		string_find = gtk_text_buffer_get_text (buffer, &start_iter, &end_iter,
 			FALSE);
-		gtk_entry_set_text(GTK_ENTRY(entry_find), string_find);
+		gtk_editable_set_text(GTK_EDITABLE(entry_find), string_find);
 		gtk_dialog_set_response_sensitive(GTK_DIALOG(dialog),
 			GTK_RESPONSE_OK, TRUE);
 	 }
 	 else
-		gtk_entry_set_text(GTK_ENTRY(entry_find), "");
+		gtk_editable_set_text(GTK_EDITABLE(entry_find), "");
 #endif
 	if (mode) {
 		label_replace = gtk_label_new_with_mnemonic(_("Re_place with:"));
-		 gtk_misc_set_alignment(GTK_MISC(label_replace), 0, 0.5);
-		 gtk_table_attach_defaults(GTK_TABLE(table), label_replace, 0, 1, 1, 2);
+		 gtk_widget_set_halign(label_replace, GTK_ALIGN_START);
+		 gtk_grid_attach(GTK_GRID(grid), label_replace, 0, 1, 1, 1);
 #if SEARCH_HISTORY
 		combo_replace = create_combo_with_history (&replace_history);
-		 gtk_table_attach_defaults(GTK_TABLE(table), combo_replace, 1, 2, 1, 2);
-		entry_replace = gtk_bin_get_child(GTK_BIN(combo_replace));
+		 gtk_widget_set_hexpand(combo_replace, TRUE);
+		 gtk_grid_attach(GTK_GRID(grid), combo_replace, 1, 1, 1, 1);
+		entry_replace = gtk_combo_box_get_child(GTK_COMBO_BOX(combo_replace));
 		 gtk_label_set_mnemonic_widget(GTK_LABEL(label_replace), entry_replace);
-		 gtk_entry_set_text(GTK_ENTRY(entry_replace), "");
+		 gtk_editable_set_text(GTK_EDITABLE(entry_replace), "");
 #else
 		entry_replace = gtk_entry_new();
-		 gtk_table_attach_defaults(GTK_TABLE(table), entry_replace, 1, 2, 1, 2);
+		 gtk_widget_set_hexpand(entry_replace, TRUE);
+		 gtk_grid_attach(GTK_GRID(grid), entry_replace, 1, 1, 1, 1);
 		 gtk_label_set_mnemonic_widget(GTK_LABEL(label_replace), entry_replace);
 		 if (string_replace)
-			 gtk_entry_set_text(GTK_ENTRY(entry_replace), string_replace);
+			 gtk_editable_set_text(GTK_EDITABLE(entry_replace), string_replace);
 	}
 	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
 	gtk_entry_set_activates_default(GTK_ENTRY(entry_find), TRUE);
@@ -401,13 +415,13 @@ gint run_dialog_search(GtkWidget *textview, gint mode)
 	check_case = gtk_check_button_new_with_mnemonic(_("_Match case"));
 	 gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_case), match_case);
 	 g_signal_connect(check_case, "toggled", G_CALLBACK(toggle_check_case), NULL);
-	 gtk_table_attach_defaults (GTK_TABLE(table), check_case, 0, 2, 1 + mode, 2 + mode);
+	 gtk_grid_attach(GTK_GRID(grid), check_case, 0, 1 + mode, 2, 1);
 	if (mode) {
 #endif
 	check_all = gtk_check_button_new_with_mnemonic(_("Replace _all at once"));
 	 gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_all), replace_all);
 	 g_signal_connect(check_all, "toggled", G_CALLBACK(toggle_check_all), NULL);
-	 gtk_table_attach_defaults(GTK_TABLE(table), check_all, 0, 2, 2 + mode, 3 + mode);
+	 gtk_grid_attach(GTK_GRID(grid), check_all, 0, 2 + mode, 2, 1);
 	}
 #if SEARCH_HISTORY
 	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
@@ -415,30 +429,30 @@ gint run_dialog_search(GtkWidget *textview, gint mode)
 	check_case = gtk_check_button_new_with_mnemonic(_("_Match case"));
 	 gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(check_case), match_case);
 	 g_signal_connect(check_case, "toggled", G_CALLBACK(toggle_check_case), NULL);
-	 gtk_table_attach_defaults (GTK_TABLE(table), check_case, 0, 2, 1 + mode, 2 + mode);
+	 gtk_grid_attach(GTK_GRID(grid), check_case, 0, 1 + mode, 2, 1);
 #endif
 	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
-	gtk_widget_show_all(table);
 
-	res = gtk_dialog_run(GTK_DIALOG(dialog));
+	/* TODO: convert to async dialog API in a future cleanup pass */
+	res = run_dialog_sync(GTK_DIALOG(dialog));
 	if (res == GTK_RESPONSE_OK) {
 #if SEARCH_HISTORY
 		update_combo_data (entry_find, &find_history);
 		if (string_find != NULL)
 #endif
 		g_free(string_find);
-		string_find = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry_find)));
+		string_find = g_strdup(gtk_editable_get_text(GTK_EDITABLE(entry_find)));
 		if (mode) {
 #if SEARCH_HISTORY
 			update_combo_data (entry_replace, &replace_history);
 			if (string_replace != NULL)
 #endif
 			g_free(string_replace);
-			string_replace = g_strdup(gtk_entry_get_text(GTK_ENTRY(entry_replace)));
+			string_replace = g_strdup(gtk_editable_get_text(GTK_EDITABLE(entry_replace)));
 		}
 	}
 
-	gtk_widget_destroy(dialog);
+	gtk_window_destroy(GTK_WINDOW(dialog));
 
 	if (res == GTK_RESPONSE_OK) {
 		if (strlen(string_find)) {
@@ -456,7 +470,7 @@ void run_dialog_jump_to(GtkWidget *textview)
 {
 	GtkWidget *dialog;
 	GtkWidget *button;
-	GtkWidget *table;
+	GtkWidget *grid;
 	GtkWidget *label;
 	GtkWidget *spinner;
 	GtkAdjustment *spinner_adj;
@@ -472,32 +486,37 @@ void run_dialog_jump_to(GtkWidget *textview)
 	max_num = gtk_text_iter_get_line(&iter) + 1;
 
 	dialog = gtk_dialog_new_with_buttons(_("Jump To"),
-		GTK_WINDOW(gtk_widget_get_toplevel(textview)),
+		GTK_WINDOW(gtk_widget_get_root(textview)),
 		GTK_DIALOG_DESTROY_WITH_PARENT,
-		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+		_("_Cancel"), GTK_RESPONSE_CANCEL,
 		NULL);
-	gtk_container_set_border_width (GTK_CONTAINER(dialog), 4);
+	gtk_widget_set_margin_start(dialog, 4);
+	gtk_widget_set_margin_end(dialog, 4);
+	gtk_widget_set_margin_top(dialog, 4);
+	gtk_widget_set_margin_bottom(dialog, 4);
 	button = create_button_with_stock_image(_("_Jump"), "go-jump");
-	gtk_widget_set_can_default(button, TRUE);
 	gtk_dialog_add_action_widget(GTK_DIALOG(dialog), button, GTK_RESPONSE_OK);
-	table = gtk_table_new(1, 2, FALSE);
-	 gtk_table_set_col_spacings(GTK_TABLE(table), 8);
-	 gtk_container_set_border_width (GTK_CONTAINER(table), 8);
-	 gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), table, FALSE, FALSE, 0);
+	grid = gtk_grid_new();
+	 gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
+	 gtk_widget_set_margin_start(grid, 8);
+	 gtk_widget_set_margin_end(grid, 8);
+	 gtk_widget_set_margin_top(grid, 8);
+	 gtk_widget_set_margin_bottom(grid, 8);
+	 gtk_box_append(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), grid);
 	label = gtk_label_new_with_mnemonic(_("_Line number:"));
 	spinner_adj = gtk_adjustment_new(num, 1, max_num, 1, 1, 0);
 	spinner = gtk_spin_button_new(spinner_adj, 1, 0);
-	 gtk_entry_set_width_chars(GTK_ENTRY(spinner), 8);
+	 gtk_editable_set_width_chars(GTK_EDITABLE(spinner), 8);
 	 gtk_label_set_mnemonic_widget(GTK_LABEL(label), spinner);
 	 gtk_entry_set_activates_default(GTK_ENTRY(spinner), TRUE);
-	gtk_table_attach_defaults(GTK_TABLE(table), label, 0, 1, 0, 1);
-	gtk_table_attach_defaults(GTK_TABLE(table), spinner, 1, 2, 0, 1);
+	gtk_grid_attach(GTK_GRID(grid), label, 0, 0, 1, 1);
+	gtk_grid_attach(GTK_GRID(grid), spinner, 1, 0, 1, 1);
 
 	gtk_dialog_set_default_response(GTK_DIALOG(dialog), GTK_RESPONSE_OK);
 	gtk_window_set_resizable(GTK_WINDOW(dialog), FALSE);
-	gtk_widget_show_all(dialog);
 
-	if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
+	/* TODO: convert to async dialog API in a future cleanup pass */
+	if (run_dialog_sync(GTK_DIALOG(dialog)) == GTK_RESPONSE_OK) {
 		gtk_text_buffer_get_iter_at_line(textbuffer, &iter,
 			gtk_spin_button_get_value_as_int(GTK_SPIN_BUTTON(spinner)) - 1);
 		gtk_text_buffer_place_cursor(textbuffer, &iter);
@@ -505,5 +524,5 @@ void run_dialog_jump_to(GtkWidget *textview)
 		scroll_to_cursor(textbuffer, 0.25);
 	}
 
-	gtk_widget_destroy (dialog);
+	gtk_window_destroy(GTK_WINDOW(dialog));
 }
