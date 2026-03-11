@@ -25,6 +25,8 @@
 
 static gint min_number_window_width;
 static gboolean line_number_visible = FALSE;
+static GtkWidget *gutter_widget = NULL;
+static GtkTextView *gutter_text_view = NULL;
 #define	margin 5
 #define	submargin 2
 
@@ -114,17 +116,36 @@ line_numbers_foreground_attr_new(GtkWidget *widget)
 	GdkRGBA          rgb;
 
 	context = gtk_widget_get_style_context(widget);
-	gtk_style_context_get_color(context, GTK_STATE_FLAG_NORMAL, &rgb);
+	gtk_style_context_get_color(context, &rgb);
 
 	return pango_attr_foreground_new((guint16)(rgb.red   * 65535),
 									 (guint16)(rgb.green * 65535),
 									 (guint16)(rgb.blue  * 65535));
 }
 
-static gint
-line_numbers_expose (GtkWidget *widget, cairo_t *event)
+/*
+ * GTK4 gutter draw function.
+ *
+ * In GTK3, line numbers were drawn via the text view's "draw" signal
+ * into the left border window.  In GTK4, border windows are gone;
+ * instead we install a GtkDrawingArea as the left gutter widget via
+ * gtk_text_view_set_gutter().  The gutter widget's draw function
+ * receives a cairo context already clipped and translated to the
+ * gutter area, so coordinates start at (0,0) in the gutter.
+ *
+ * The gutter widget is automatically scrolled in sync with the text
+ * view by GTK, so y coordinates in the gutter correspond directly to
+ * the text view's window coordinates for GTK_TEXT_WINDOW_LEFT.
+ */
+static void
+line_numbers_draw (GtkDrawingArea *area,
+                   cairo_t        *cr,
+                   int             width,
+                   int             height,
+                   gpointer        user_data)
 {
-	GtkTextView *text_view;
+	GtkTextView *text_view = gutter_text_view;
+	GtkWidget *tv_widget;
 	PangoLayout *layout;
 	PangoAttrList *alist;
 	PangoAttribute *attr;
@@ -136,48 +157,26 @@ line_numbers_expose (GtkWidget *widget, cairo_t *event)
 	gint justify_width = 0;
 	gint i;
 	gchar str [8];  /* we don't expect more than ten million lines */
+	gint content_width;
 
-	cairo_rectangle_list_t *clips;
+	(void)user_data;
 
-	if (line_number_visible) {
+	if (!line_number_visible || text_view == NULL)
+		return;
 
-	text_view = GTK_TEXT_VIEW (widget);
+	tv_widget = GTK_WIDGET(text_view);
 
-#if 0
-	GdkWindow *win;
-	win = gtk_text_view_get_window (text_view,
-	                                GTK_TEXT_WINDOW_LEFT);
-	if (event->window != win)
-		return FALSE;
-
-	y1 = event->area.y;
-	y2 = y1 + event->area.height;
-#endif
-
-	/* get origin of the clipping area. */
-	clips = cairo_copy_clip_rectangle_list(event);
-
-	i  = (gint)clips->rectangles[0].x;
-	y1 = (gint)clips->rectangles[0].y;
-
-	cairo_rectangle_list_destroy(clips);
-
-	/* skip drawing if not in the line number area. */
-	if (i >= gtk_text_view_get_border_window_size(text_view, GTK_TEXT_WINDOW_LEFT))
-		return FALSE;
-
+	/* The gutter is scrolled in sync with the text view by GTK4.
+	 * y=0 in the gutter corresponds to the top of the visible area.
+	 * Convert to buffer coordinates for get_lines(). */
 	gtk_text_view_window_to_buffer_coords (text_view,
 	                                       GTK_TEXT_WINDOW_LEFT,
-	                                       0,
-	                                       y1,
-	                                       NULL,
-	                                       &y1);
+	                                       0, 0,
+	                                       NULL, &y1);
 	gtk_text_view_window_to_buffer_coords (text_view,
 	                                       GTK_TEXT_WINDOW_LEFT,
-	                                       0,
-	                                       gtk_widget_get_allocated_height(widget),
-	                                       NULL,
-	                                       &y2);
+	                                       0, height,
+	                                       NULL, &y2);
 
 	numbers = g_array_new (FALSE, FALSE, sizeof (gint));
 	pixels = g_array_new (FALSE, FALSE, sizeof (gint));
@@ -204,7 +203,7 @@ DV({g_print("Painting line numbers %d - %d\n",
 			g_array_index(numbers, gint, 0),
 			g_array_index(numbers, gint, count - 1));	});
 
-	layout = gtk_widget_create_pango_layout (widget, "");
+	layout = gtk_widget_create_pango_layout (tv_widget, "");
 
 	g_snprintf (str, sizeof (str),
 			"%d", MAX (99, gtk_text_buffer_get_line_count(gtk_text_view_get_buffer(text_view))));
@@ -212,22 +211,23 @@ DV({g_print("Painting line numbers %d - %d\n",
 
 	pango_layout_get_pixel_size (layout, &layout_width, NULL);
 
-	min_number_window_width = calculate_min_number_window_width(widget);
-	if (layout_width > min_number_window_width)
-		gtk_text_view_set_border_window_size (text_view,
-			GTK_TEXT_WINDOW_LEFT, layout_width + margin + submargin);
-	else {
-		gtk_text_view_set_border_window_size (text_view,
-			GTK_TEXT_WINDOW_LEFT, min_number_window_width + margin + submargin);
+	min_number_window_width = calculate_min_number_window_width(tv_widget);
+	if (layout_width > min_number_window_width) {
+		content_width = layout_width + margin + submargin;
+	} else {
+		content_width = min_number_window_width + margin + submargin;
 		justify_width = min_number_window_width - layout_width;
 	}
+
+	/* Update the gutter width if needed */
+	gtk_drawing_area_set_content_width(area, content_width);
 
 	pango_layout_set_width (layout, layout_width);
 	pango_layout_set_alignment (layout, PANGO_ALIGN_RIGHT);
 
 	alist = pango_attr_list_new();
 /* TODO: should change line number color by conffile */
-	attr = line_numbers_foreground_attr_new(widget);
+	attr = line_numbers_foreground_attr_new(tv_widget);
 	attr->start_index = 0;
 	attr->end_index = G_MAXUINT;
 	pango_attr_list_insert(alist, attr);
@@ -250,59 +250,87 @@ DV({g_print("Painting line numbers %d - %d\n",
 
 		pango_layout_set_text (layout, str, -1);
 
-		gtk_render_layout (gtk_widget_get_style_context(widget),
-		                  event,
-		                  layout_width + justify_width + margin / 2 + 1,
-		                  pos,
-		                  layout);
+		cairo_move_to(cr,
+		              layout_width + justify_width + margin / 2 + 1,
+		              pos);
+		pango_cairo_show_layout(cr, layout);
 	}
 
 	g_array_free (pixels, TRUE);
 	g_array_free (numbers, TRUE);
 	g_object_unref (G_OBJECT (layout));
-	}
+}
 
-#if 0
-	cairo_t *gc;
-	gint height;
-	gc = gdk_gc_new(event->window);
-	gdk_gc_set_foreground(gc, widget->style->base);
-	gdk_window_get_geometry(event->window, NULL, NULL, NULL, &height, NULL);
-	gdk_draw_rectangle(event->window, gc, TRUE,
-		line_number_visible ?
-		layout_width + justify_width + margin : 0,
-		0, submargin,
-		height);
+static void
+on_text_changed_or_scrolled(gpointer data)
+{
+	if (gutter_widget != NULL && line_number_visible)
+		gtk_widget_queue_draw(gutter_widget);
+}
 
-	g_object_unref(gc);
-#endif
+static void
+on_buffer_changed(GtkTextBuffer *buffer, gpointer data)
+{
+	(void)buffer;
+	on_text_changed_or_scrolled(data);
+}
 
-	return FALSE;
+static void
+on_vadjustment_changed(GtkAdjustment *adj, gpointer data)
+{
+	(void)adj;
+	on_text_changed_or_scrolled(data);
 }
 
 void show_line_numbers(GtkWidget *text_view, gboolean visible)
 {
 	line_number_visible = visible;
+	if (gutter_widget == NULL)
+		return;
+
 	if (visible) {
-		gtk_text_view_set_border_window_size(
-			GTK_TEXT_VIEW(text_view),
-			GTK_TEXT_WINDOW_LEFT,
-			min_number_window_width + margin + submargin);
+		gtk_widget_set_visible(gutter_widget, TRUE);
+		gtk_widget_queue_draw(gutter_widget);
 	} else {
-		gtk_text_view_set_border_window_size(
-			GTK_TEXT_VIEW(text_view),
-			GTK_TEXT_WINDOW_LEFT,
-			submargin);
+		gtk_widget_set_visible(gutter_widget, FALSE);
 	}
 }
 
 void linenum_init(GtkWidget *text_view)
 {
+	GtkAdjustment *vadj;
+
+	gutter_text_view = GTK_TEXT_VIEW(text_view);
 	min_number_window_width = calculate_min_number_window_width(text_view);
-	g_signal_connect_after(
-		G_OBJECT(text_view),
-		"draw",
-		G_CALLBACK(line_numbers_expose),
+
+	/* Create a GtkDrawingArea to serve as the left gutter */
+	gutter_widget = gtk_drawing_area_new();
+	gtk_drawing_area_set_content_width(
+		GTK_DRAWING_AREA(gutter_widget),
+		min_number_window_width + margin + submargin);
+	gtk_drawing_area_set_draw_func(
+		GTK_DRAWING_AREA(gutter_widget),
+		line_numbers_draw,
+		NULL, NULL);
+
+	gtk_text_view_set_gutter(
+		GTK_TEXT_VIEW(text_view),
+		GTK_TEXT_WINDOW_LEFT,
+		gutter_widget);
+
+	/* Redraw line numbers when the buffer content changes */
+	g_signal_connect(
+		gtk_text_view_get_buffer(GTK_TEXT_VIEW(text_view)),
+		"changed",
+		G_CALLBACK(on_buffer_changed),
 		NULL);
+
+	/* Redraw line numbers when the view scrolls */
+	vadj = gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(text_view));
+	if (vadj != NULL) {
+		g_signal_connect(vadj, "value-changed",
+			G_CALLBACK(on_vadjustment_changed), NULL);
+	}
+
 	show_line_numbers(text_view, FALSE);
 }
