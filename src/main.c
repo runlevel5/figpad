@@ -231,13 +231,8 @@ static void on_activate(GtkApplication *app, gpointer user_data)
 	g_free(conf->fontname);
 	g_free(conf);
 
-#if ENABLE_EMACS
-	/* Emacs module is disabled for GTK4 — uses nested gtk_main() */
-#endif
-
 	hlight_init(pub->mw->buffer);
 	undo_init(pub->mw->view, NULL, NULL);
-	dnd_init(pub->mw->view);
 
 	if (pub->fi->filename)
 		file_open_real(pub->mw->view, pub->fi);

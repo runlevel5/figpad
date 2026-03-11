@@ -15,9 +15,7 @@ sources = [
   'search.c',
   'dialog.c',
   'gtkprint.c',
-  'dnd.c',
   'utils.c',
-  'emacs.c',
   'gtksourceiter.c',
 ]
 

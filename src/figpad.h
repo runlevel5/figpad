@@ -28,10 +28,6 @@
 #include <glib.h>
 #include <glib/gi18n.h>
 
-#ifndef ENABLE_EMACS
-#define ENABLE_EMACS 0
-#endif
-
 #ifndef ENABLE_PRINT
 #define ENABLE_PRINT 1
 #endif
@@ -42,11 +38,6 @@
 
 #ifndef ENABLE_STATISTICS
 #define ENABLE_STATISTICS 1
-#endif
-
-/* XINPUT2 is not used in GTK4 */
-#ifndef ENABLE_XINPUT2
-#define ENABLE_XINPUT2 0
 #endif
 
 #include "window.h"
@@ -63,9 +54,7 @@
 #include "encoding.h"
 #include "search.h"
 #include "dialog.h"
-#include "dnd.h"
 #include "utils.h"
-#include "emacs.h"
 #include "gtkprint.h"
 typedef struct {
 	FileInfo *fi;
