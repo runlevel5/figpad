@@ -34,8 +34,8 @@ static void apply_font_css(GtkWidget *widget)
 
 	if (!font_css_provider) {
 		font_css_provider = gtk_css_provider_new();
-		gtk_style_context_add_provider(
-			gtk_widget_get_style_context(widget),
+		gtk_style_context_add_provider_for_display(
+			gdk_display_get_default(),
 			GTK_STYLE_PROVIDER(font_css_provider),
 			GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
 	}
