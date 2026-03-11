@@ -48,7 +48,7 @@ gchar *gedit_utils_get_stdin (void)
 		return NULL;
 
 	tmp_buf = g_new0 (gchar, GEDIT_STDIN_BUFSIZE + 1);
-	g_return_val_if_fail (tmp_buf != NULL, FALSE);
+	g_return_val_if_fail (tmp_buf != NULL, NULL);
 
 	file_contents = g_string_new (NULL);
 
