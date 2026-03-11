@@ -34,7 +34,6 @@ gchar *gedit_utils_get_stdin (void)
 	GString * file_contents;
 	gchar *tmp_buf = NULL;
 	guint buffer_length;
-//	GnomeVFSResult	res;
 	fd_set rfds;
 	struct timeval tv;
 
@@ -61,8 +60,6 @@ gchar *gedit_utils_get_stdin (void)
 
 		if (ferror (stdin) != 0)
 		{
-//			res = gnome_vfs_result_from_errno ();
-
 			g_free (tmp_buf);
 			g_string_free (file_contents, TRUE);
 			return NULL;
@@ -81,22 +78,19 @@ GtkWidget *create_button_with_stock_image(const gchar *text, const gchar *stock_
 	GtkWidget *hbox;
 	GtkWidget *image;
 	GtkWidget *label;
-	GtkWidget *align;
 
 	hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+	gtk_widget_set_halign(hbox, GTK_ALIGN_CENTER);
+	gtk_widget_set_valign(hbox, GTK_ALIGN_CENTER);
 
-	image = gtk_image_new_from_icon_name(stock_id, GTK_ICON_SIZE_BUTTON);
-	gtk_box_pack_start(GTK_BOX(hbox), image, FALSE, FALSE, 0);
+	image = gtk_image_new_from_icon_name(stock_id);
+	gtk_box_append(GTK_BOX(hbox), image);
 
 	label = gtk_label_new_with_mnemonic(text);
-	gtk_box_pack_end(GTK_BOX(hbox), label, FALSE, FALSE, 0);
-
-	align = gtk_alignment_new (0.5, 0.5, 0.0, 0.0);
-	gtk_container_add(GTK_CONTAINER(align), hbox);
+	gtk_box_append(GTK_BOX(hbox), label);
 
 	button = gtk_button_new();
-	gtk_container_add(GTK_CONTAINER(button), align);
-	gtk_widget_show_all(button);
+	gtk_button_set_child(GTK_BUTTON(button), hbox);
 
 	return button;
 }
@@ -107,7 +101,7 @@ void update_combo_data (GtkWidget *entry, GList **history)
 	const gchar *text;
 	GList *node;
 
-	text = gtk_entry_get_text (GTK_ENTRY (entry));
+	text = gtk_editable_get_text(GTK_EDITABLE(entry));
 	if (*text == '\0')
 		return;
 	for (node = *history; node != NULL; node = g_list_next (node))
@@ -128,17 +122,13 @@ GtkWidget *create_combo_with_history (GList **history)
 	GList *node;
 
 	combo = gtk_combo_box_text_new_with_entry ();
-	//work around gtk silliness -
-	//'appears-as-list' is a read-only style property instead of a widget property
-	gtk_rc_parse_string (
-		"style \"list-style-style\" { GtkComboBox::appears-as-list = 1 } "
-		"widget \"*.list-style\" style \"list-style-style\"");
-	gtk_widget_set_name (combo, "list-style");
+	/* gtk_rc_parse_string() removed in GTK4; appears-as-list styling
+	 * is no longer available via RC strings.  The combo will use its
+	 * default presentation. */
 
 	for (node = *history; node != NULL; node = g_list_next (node))
 		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (combo), node->data);
 
-	gtk_widget_show (combo);
 	return combo;
 }
 
