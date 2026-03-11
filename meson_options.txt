@@ -1,0 +1,6 @@
+option('enable_print', type: 'boolean', value: true,
+  description: 'Enable print support')
+option('enable_statistics', type: 'boolean', value: true,
+  description: 'Enable document statistics')
+option('enable_search_history', type: 'boolean', value: false,
+  description: 'Enable search history')
