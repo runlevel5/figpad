@@ -19,12 +19,19 @@
 
 #include "figpad.h"
 
-static PangoLayout *layout;
-static PangoFontDescription *font_desc;
-static gint line_count, lines_per_page, text_height;
-static gint n_pages;
-static gdouble page_width, page_height;
-static const gchar *page_title = NULL;
+/* Per-print-job state, threaded through callback user_data. */
+typedef struct {
+	PangoLayout          *layout;
+	PangoFontDescription *font_desc;
+	gint                  line_count;
+	gint                  lines_per_page;
+	gint                  text_height;
+	gint                  n_pages;
+	gdouble               page_width;
+	gdouble               page_height;
+	const gchar          *page_title;
+	GtkTextView          *text_view;   /* kept for begin-print */
+} PrintJobState;
 
 static void get_tab_array(PangoTabArray **tabs,
 	GtkPrintContext *ctx, GtkTextView *text_view)
@@ -43,39 +50,40 @@ static void get_tab_array(PangoTabArray **tabs,
 static void cb_begin_print(GtkPrintOperation *op,
 		GtkPrintContext *ctx, gpointer data)
 {
+	PrintJobState *ps = data;
 	gint layout_height;
 	gchar *text;
 	GtkTextIter start, end;
-	GtkTextBuffer *buffer = gtk_text_view_get_buffer(data);
+	GtkTextBuffer *buffer = gtk_text_view_get_buffer(ps->text_view);
 	PangoTabArray *tabs;
 
 	gtk_text_buffer_get_bounds(buffer, &start, &end);
 	text = g_strchomp(gtk_text_buffer_get_text(buffer, &start, &end, FALSE));
 
-	page_width = gtk_print_context_get_width(ctx);
-	page_height = gtk_print_context_get_height(ctx);
+	ps->page_width = gtk_print_context_get_width(ctx);
+	ps->page_height = gtk_print_context_get_height(ctx);
 
 	gchar *font_name = get_current_font_name();
-	font_desc = pango_font_description_from_string(font_name);
+	ps->font_desc = pango_font_description_from_string(font_name);
 	g_free(font_name);
-	layout = gtk_print_context_create_pango_layout(ctx);
-	pango_layout_set_width(layout, page_width * PANGO_SCALE);
-	pango_layout_set_font_description(layout, font_desc);
-	pango_layout_set_text(layout, text, -1);
+	ps->layout = gtk_print_context_create_pango_layout(ctx);
+	pango_layout_set_width(ps->layout, ps->page_width * PANGO_SCALE);
+	pango_layout_set_font_description(ps->layout, ps->font_desc);
+	pango_layout_set_text(ps->layout, text, -1);
 
-	get_tab_array(&tabs, ctx, data);
+	get_tab_array(&tabs, ctx, ps->text_view);
 	if (tabs) {
-		pango_layout_set_tabs(layout, tabs);
+		pango_layout_set_tabs(ps->layout, tabs);
 		pango_tab_array_free(tabs);
 	}
-	pango_layout_get_size(layout, NULL, &layout_height);
+	pango_layout_get_size(ps->layout, NULL, &layout_height);
 
-	line_count = pango_layout_get_line_count(layout);
-	text_height = pango_font_description_get_size(font_desc) / PANGO_SCALE;
-	lines_per_page = page_height / text_height;
+	ps->line_count = pango_layout_get_line_count(ps->layout);
+	ps->text_height = pango_font_description_get_size(ps->font_desc) / PANGO_SCALE;
+	ps->lines_per_page = ps->page_height / ps->text_height;
 
-	n_pages = (line_count - 1) / lines_per_page + 1;
-	gtk_print_operation_set_n_pages(op, n_pages);
+	ps->n_pages = (ps->line_count - 1) / ps->lines_per_page + 1;
+	gtk_print_operation_set_n_pages(op, ps->n_pages);
 
 	g_free(text);
 }
@@ -83,6 +91,7 @@ static void cb_begin_print(GtkPrintOperation *op,
 static void cb_draw_page(GtkPrintOperation *op,
 		GtkPrintContext *ctx, gint page_nr, gpointer data)
 {
+	PrintJobState *ps = data;
 	cairo_t *cr;
 	PangoLayoutLine *line;
 	gint n_line, i, j = 0;
@@ -94,29 +103,29 @@ static void cb_draw_page(GtkPrintOperation *op,
 	cr = gtk_print_context_get_cairo_context(ctx);
 
 	layout_lh = gtk_print_context_create_pango_layout(ctx);
-	pango_layout_set_font_description(layout_lh, font_desc);
-	pango_layout_set_text(layout_lh, page_title, -1);
+	pango_layout_set_font_description(layout_lh, ps->font_desc);
+	pango_layout_set_text(layout_lh, ps->page_title, -1);
 	cairo_move_to(cr, 0, -PRINT_HEADER_OFFSET_PT);
 	pango_cairo_show_layout(cr, layout_lh);
 
-	page_text = g_strdup_printf("%d / %d", page_nr + 1, n_pages);
+	page_text = g_strdup_printf("%d / %d", page_nr + 1, ps->n_pages);
 	layout_rh = gtk_print_context_create_pango_layout(ctx);
-	pango_layout_set_font_description(layout_rh, font_desc);
+	pango_layout_set_font_description(layout_rh, ps->font_desc);
 	pango_layout_set_text(layout_rh, page_text, -1);
 	pango_layout_get_size(layout_rh, &layout_width, NULL);
 	cairo_move_to(cr,
-		page_width - layout_width / PANGO_SCALE, -PRINT_HEADER_OFFSET_PT);
+		ps->page_width - layout_width / PANGO_SCALE, -PRINT_HEADER_OFFSET_PT);
 	pango_cairo_show_layout(cr, layout_rh);
 	g_free(page_text);
 
-	if (line_count > lines_per_page * (page_nr + 1))
-		n_line = lines_per_page * (page_nr + 1);
+	if (ps->line_count > ps->lines_per_page * (page_nr + 1))
+		n_line = ps->lines_per_page * (page_nr + 1);
 	else
-		n_line = line_count;
+		n_line = ps->line_count;
 
-	for (i = lines_per_page * page_nr; i < n_line; i++) {
-		line = pango_layout_get_line(layout, i);
-		cairo_move_to(cr, 0, text_height * (j + 1));
+	for (i = ps->lines_per_page * page_nr; i < n_line; i++) {
+		line = pango_layout_get_line(ps->layout, i);
+		cairo_move_to(cr, 0, ps->text_height * (j + 1));
 		pango_cairo_show_layout_line(cr, line);
 		j++;
 	}
@@ -125,16 +134,17 @@ static void cb_draw_page(GtkPrintOperation *op,
 static void cb_end_print(GtkPrintOperation *op,
 		GtkPrintContext *ctx, gpointer data)
 {
-	g_object_unref(layout);
-	if (font_desc) {
-		pango_font_description_free(font_desc);
-		font_desc = NULL;
+	PrintJobState *ps = data;
+	g_object_unref(ps->layout);
+	if (ps->font_desc) {
+		pango_font_description_free(ps->font_desc);
+		ps->font_desc = NULL;
 	}
 }
 
 static GtkPrintSettings *settings = NULL;
 
-static GtkPrintOperation *create_print_operation(GtkTextView *text_view)
+static GtkPrintOperation *create_print_operation(PrintJobState *ps)
 {
 	GtkPrintOperation *op;
 	static GtkPageSetup *page_setup = NULL;
@@ -153,9 +163,9 @@ static GtkPrintOperation *create_print_operation(GtkTextView *text_view)
 	}
 	gtk_print_operation_set_default_page_setup(op, page_setup);
 
-	g_signal_connect(op, "begin-print", G_CALLBACK(cb_begin_print), text_view);
-	g_signal_connect(op, "draw-page", G_CALLBACK(cb_draw_page), NULL);
-	g_signal_connect(op, "end-print", G_CALLBACK(cb_end_print), NULL);
+	g_signal_connect(op, "begin-print", G_CALLBACK(cb_begin_print), ps);
+	g_signal_connect(op, "draw-page", G_CALLBACK(cb_draw_page), ps);
+	g_signal_connect(op, "end-print", G_CALLBACK(cb_end_print), ps);
 
 	return op;
 }
@@ -179,8 +189,10 @@ void create_gtkprint_session(GtkTextView *text_view, const gchar *title)
 	GtkPrintOperationResult res;
 	GError *err = NULL;
 
-	page_title = title;
-	op = create_print_operation(text_view);
+	PrintJobState *ps = g_new0(PrintJobState, 1);
+	ps->page_title = title;
+	ps->text_view = text_view;
+	op = create_print_operation(ps);
 
 	res = gtk_print_operation_run(op, GTK_PRINT_OPERATION_ACTION_PRINT_DIALOG,
 		GTK_WINDOW(gtk_widget_get_root(GTK_WIDGET(text_view))), &err);
@@ -199,4 +211,5 @@ void create_gtkprint_session(GtkTextView *text_view, const gchar *title)
 	}
 
 	g_object_unref(op);
+	g_free(ps);
 }
