@@ -35,28 +35,33 @@ enum {
 	DEL
 };
 
-static GSimpleAction *undo_action = NULL;
-static GSimpleAction *redo_action = NULL;
-static GList *undo_list = NULL;
-static GList *redo_list = NULL;
-static GString *undo_gstr;
-static UndoInfo *ui_tmp;
-static guint modified_step;
-static guint prev_keyval;
-static gboolean seq_reserve = FALSE;
+/* All undo/redo related state, grouped into a file-scope singleton. */
+typedef struct {
+	GSimpleAction *undo_action;
+	GSimpleAction *redo_action;
+	GList         *undo_list;
+	GList         *redo_list;
+	GString       *undo_gstr;
+	UndoInfo      *ui_tmp;
+	guint          modified_step;
+	guint          prev_keyval;
+	gboolean       seq_reserve;
+} UndoState;
+
+static UndoState us;
 
 static void undo_flush_temporal_buffer(GtkTextBuffer *buffer);
 
 /* helpers to enable/disable undo/redo, safe with NULL action pointers */
 static inline void set_undo_sensitive(gboolean sensitive)
 {
-	if (undo_action)
-		g_simple_action_set_enabled(undo_action, sensitive);
+	if (us.undo_action)
+		g_simple_action_set_enabled(us.undo_action, sensitive);
 }
 static inline void set_redo_sensitive(gboolean sensitive)
 {
-	if (redo_action)
-		g_simple_action_set_enabled(redo_action, sensitive);
+	if (us.redo_action)
+		g_simple_action_set_enabled(us.redo_action, sensitive);
 }
 
 static GList *undo_clear_info_list(GList *info_list)
@@ -76,12 +81,12 @@ static void undo_append_undo_info(GtkTextBuffer *buffer, gchar command, gint sta
 	ui->command = command;
 	ui->start = start;
 	ui->end = end;
-	ui->seq = seq_reserve;
+	ui->seq = us.seq_reserve;
 	ui->str = str;
 
-	seq_reserve = FALSE;
+	us.seq_reserve = FALSE;
 
-	undo_list = g_list_append(undo_list, ui);
+	us.undo_list = g_list_append(us.undo_list, ui);
 DV(g_print("undo_cb: %d %s (%d-%d)\n", command, str, start, end));
 }
 
@@ -96,26 +101,26 @@ static void undo_create_undo_info(GtkTextBuffer *buffer, gchar command, gint sta
 	gtk_text_buffer_get_iter_at_offset(buffer, &end_iter, end);
 	str = gtk_text_buffer_get_text(buffer, &start_iter, &end_iter, FALSE);
 
-	if (undo_gstr->len) {
-		if ((end - start == 1) && (command == ui_tmp->command)) {
+	if (us.undo_gstr->len) {
+		if ((end - start == 1) && (command == us.ui_tmp->command)) {
 			switch (keyval) {
 			case GDK_KEY_BackSpace:
-				if (end == ui_tmp->start)
+				if (end == us.ui_tmp->start)
 					seq_flag = TRUE;
 				break;
 			case GDK_KEY_Delete:
-				if (start == ui_tmp->start)
+				if (start == us.ui_tmp->start)
 					seq_flag = TRUE;
 				break;
 			case GDK_KEY_Tab:
 			case GDK_KEY_space:
-				if (start == ui_tmp->end)
+				if (start == us.ui_tmp->end)
 					seq_flag = TRUE;
 				break;
 			default:
-				if (start == ui_tmp->end)
+				if (start == us.ui_tmp->end)
 					if (keyval && keyval < KEYVAL_NON_CHAR_THRESHOLD)
-						switch (prev_keyval) {
+						switch (us.prev_keyval) {
 						case GDK_KEY_Return:
 						case GDK_KEY_Tab:
 						case GDK_KEY_space:
@@ -128,39 +133,39 @@ static void undo_create_undo_info(GtkTextBuffer *buffer, gchar command, gint sta
 		if (seq_flag) {
 			switch (command) {
 			case BS:
-				undo_gstr = g_string_prepend(undo_gstr, str);
-				ui_tmp->start--;
+				us.undo_gstr = g_string_prepend(us.undo_gstr, str);
+				us.ui_tmp->start--;
 				break;
 			default:
-				undo_gstr = g_string_append(undo_gstr, str);
-				ui_tmp->end++;
+				us.undo_gstr = g_string_append(us.undo_gstr, str);
+				us.ui_tmp->end++;
 			}
-			redo_list = undo_clear_info_list(redo_list);
-			prev_keyval = keyval;
+			us.redo_list = undo_clear_info_list(us.redo_list);
+			us.prev_keyval = keyval;
 			set_undo_sensitive(TRUE);
 			set_redo_sensitive(FALSE);
 			return;
 		}
-		undo_append_undo_info(buffer, ui_tmp->command, ui_tmp->start, ui_tmp->end, g_strdup(undo_gstr->str));
-		undo_gstr = g_string_erase(undo_gstr, 0, -1);
+		undo_append_undo_info(buffer, us.ui_tmp->command, us.ui_tmp->start, us.ui_tmp->end, g_strdup(us.undo_gstr->str));
+		us.undo_gstr = g_string_erase(us.undo_gstr, 0, -1);
 	}
 
-	if (!keyval && prev_keyval)
+	if (!keyval && us.prev_keyval)
 		undo_set_sequency(TRUE);
 
 	if (end - start == 1 &&
 		((keyval && keyval < KEYVAL_NON_CHAR_THRESHOLD) ||
 		  keyval == GDK_KEY_BackSpace || keyval == GDK_KEY_Delete || keyval == GDK_KEY_Tab)) {
-		ui_tmp->command = command;
-		ui_tmp->start = start;
-		ui_tmp->end = end;
-		undo_gstr = g_string_erase(undo_gstr, 0, -1);
-		g_string_append(undo_gstr, str);
+		us.ui_tmp->command = command;
+		us.ui_tmp->start = start;
+		us.ui_tmp->end = end;
+		us.undo_gstr = g_string_erase(us.undo_gstr, 0, -1);
+		g_string_append(us.undo_gstr, str);
 	} else
 		undo_append_undo_info(buffer, command, start, end, g_strdup(str));
 
-	redo_list = undo_clear_info_list(redo_list);
-	prev_keyval = keyval;
+	us.redo_list = undo_clear_info_list(us.redo_list);
+	us.prev_keyval = keyval;
 	clear_current_keyval();
 	set_undo_sensitive(TRUE);
 	set_redo_sensitive(FALSE);
@@ -196,15 +201,15 @@ DV(	g_print("delete-range\n"));
 void undo_reset_modified_step(GtkTextBuffer *buffer)
 {
 	undo_flush_temporal_buffer(buffer);
-	modified_step = g_list_length(undo_list);
-DV(g_print("undo_reset_modified_step: Reseted modified_step by %d\n", modified_step));
+	us.modified_step = g_list_length(us.undo_list);
+DV(g_print("undo_reset_modified_step: Reseted modified_step by %d\n", us.modified_step));
 }
 
 static void undo_check_modified_step(GtkTextBuffer *buffer)
 {
 	gboolean flag;
 
-	flag = (modified_step == g_list_length(undo_list));
+	flag = (us.modified_step == g_list_length(us.undo_list));
 	if (gtk_text_buffer_get_modified(buffer) == flag)
 		gtk_text_buffer_set_modified(buffer, !flag);
 }
@@ -230,15 +235,15 @@ DV(g_print("end-user-action(block_func)\n"));
 
 void undo_clear_all(GtkTextBuffer *buffer)
 {
-	undo_list = undo_clear_info_list(undo_list);
-	redo_list = undo_clear_info_list(redo_list);
+	us.undo_list = undo_clear_info_list(us.undo_list);
+	us.redo_list = undo_clear_info_list(us.redo_list);
 	undo_reset_modified_step(buffer);
 	set_undo_sensitive(FALSE);
 	set_redo_sensitive(FALSE);
 
-	ui_tmp->command = INS;
-	undo_gstr = g_string_erase(undo_gstr, 0, -1);
-	prev_keyval = 0;
+	us.ui_tmp->command = INS;
+	us.undo_gstr = g_string_erase(us.undo_gstr, 0, -1);
+	us.prev_keyval = 0;
 }
 
 void undo_init(GtkWidget *view, GtkWidget *undo_w, GtkWidget *redo_w)
@@ -252,9 +257,9 @@ void undo_init(GtkWidget *view, GtkWidget *undo_w, GtkWidget *redo_w)
 	if (toplevel) {
 		GAction *a;
 		a = g_action_map_lookup_action(G_ACTION_MAP(toplevel), "undo");
-		if (a) undo_action = G_SIMPLE_ACTION(a);
+		if (a) us.undo_action = G_SIMPLE_ACTION(a);
 		a = g_action_map_lookup_action(G_ACTION_MAP(toplevel), "redo");
-		if (a) redo_action = G_SIMPLE_ACTION(a);
+		if (a) us.redo_action = G_SIMPLE_ACTION(a);
 	}
 
 	g_signal_connect_after(G_OBJECT(buffer), "insert-text",
@@ -267,30 +272,30 @@ void undo_init(GtkWidget *view, GtkWidget *undo_w, GtkWidget *redo_w)
 		G_CALLBACK(cb_end_user_action), NULL);
 	cb_end_user_action(buffer);
 
-	ui_tmp = g_malloc(sizeof(UndoInfo));
-	undo_gstr = g_string_new("");
+	us.ui_tmp = g_malloc(sizeof(UndoInfo));
+	us.undo_gstr = g_string_new("");
 
 	undo_clear_all(buffer);
 }
 
 void undo_set_sequency(gboolean seq)
 {
-	if (g_list_length(undo_list))
-		((UndoInfo *)g_list_last(undo_list)->data)->seq = seq;
+	if (g_list_length(us.undo_list))
+		((UndoInfo *)g_list_last(us.undo_list)->data)->seq = seq;
 DV(g_print("<undo_set_sequency: %d>\n", seq));
 }
 
 void undo_set_sequency_reserve(void)
 {
-	seq_reserve = TRUE;
+	us.seq_reserve = TRUE;
 }
 
 static void undo_flush_temporal_buffer(GtkTextBuffer *buffer)
 {
-	if (undo_gstr->len) {
-		undo_append_undo_info(buffer, ui_tmp->command,
-			ui_tmp->start, ui_tmp->end, g_strdup(undo_gstr->str));
-		undo_gstr = g_string_erase(undo_gstr, 0, -1);
+	if (us.undo_gstr->len) {
+		undo_append_undo_info(buffer, us.ui_tmp->command,
+			us.ui_tmp->start, us.ui_tmp->end, g_strdup(us.undo_gstr->str));
+		us.undo_gstr = g_string_erase(us.undo_gstr, 0, -1);
 	}
 }
 
@@ -300,8 +305,8 @@ gboolean undo_undo_real(GtkTextBuffer *buffer)
 	UndoInfo *ui;
 
 	undo_flush_temporal_buffer(buffer);
-	if (g_list_length(undo_list)) {
-		ui = g_list_last(undo_list)->data;
+	if (g_list_length(us.undo_list)) {
+		ui = g_list_last(us.undo_list)->data;
 		gtk_text_buffer_get_iter_at_offset(buffer, &start_iter, ui->start);
 		switch (ui->command) {
 		case INS:
@@ -311,12 +316,12 @@ gboolean undo_undo_real(GtkTextBuffer *buffer)
 		default:
 			gtk_text_buffer_insert(buffer, &start_iter, ui->str, -1);
 		}
-		redo_list = g_list_append(redo_list, ui);
-		undo_list = g_list_delete_link(undo_list, g_list_last(undo_list));
+		us.redo_list = g_list_append(us.redo_list, ui);
+		us.undo_list = g_list_delete_link(us.undo_list, g_list_last(us.undo_list));
 DV(g_print("cb_edit_undo: undo left = %d, redo left = %d\n",
-g_list_length(undo_list), g_list_length(redo_list)));
-		if (g_list_length(undo_list)) {
-			if (((UndoInfo *)g_list_last(undo_list)->data)->seq)
+g_list_length(us.undo_list), g_list_length(us.redo_list)));
+		if (g_list_length(us.undo_list)) {
+			if (((UndoInfo *)g_list_last(us.undo_list)->data)->seq)
 				return TRUE;
 		} else
 			set_undo_sensitive(FALSE);
@@ -335,8 +340,8 @@ gboolean undo_redo_real(GtkTextBuffer *buffer)
 	GtkTextIter start_iter, end_iter;
 	UndoInfo *ri;
 
-	if (g_list_length(redo_list)) {
-		ri = g_list_last(redo_list)->data;
+	if (g_list_length(us.redo_list)) {
+		ri = g_list_last(us.redo_list)->data;
 		gtk_text_buffer_get_iter_at_offset(buffer, &start_iter, ri->start);
 		switch (ri->command) {
 		case INS:
@@ -346,15 +351,15 @@ gboolean undo_redo_real(GtkTextBuffer *buffer)
 			gtk_text_buffer_get_iter_at_offset(buffer, &end_iter, ri->end);
 			gtk_text_buffer_delete(buffer, &start_iter, &end_iter);
 		}
-		undo_list = g_list_append(undo_list, ri);
-		redo_list = g_list_delete_link(redo_list, g_list_last(redo_list));
+		us.undo_list = g_list_append(us.undo_list, ri);
+		us.redo_list = g_list_delete_link(us.redo_list, g_list_last(us.redo_list));
 DV(g_print("cb_edit_redo: undo left = %d, redo left = %d\n",
-g_list_length(undo_list), g_list_length(redo_list)));
+g_list_length(us.undo_list), g_list_length(us.redo_list)));
 		if (ri->seq) {
 			undo_set_sequency(TRUE);
 			return TRUE;
 		}
-		if (!g_list_length(redo_list))
+		if (!g_list_length(us.redo_list))
 			set_redo_sensitive(FALSE);
 		set_undo_sensitive(TRUE);
 		gtk_text_buffer_place_cursor(buffer, &start_iter);
