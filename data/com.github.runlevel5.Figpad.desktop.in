@@ -1,9 +1,10 @@
 [Desktop Entry]
-_Name=Figpad
-_Comment=Simple text editor
+Name=Figpad
+Comment=Simple text editor
 Exec=figpad %f
-Icon=figpad
+Icon=com.github.runlevel5.Figpad
 Terminal=false
+StartupWMClass=figpad
 Type=Application
 MimeType=text/plain;
 Categories=GTK;Utility;TextEditor;

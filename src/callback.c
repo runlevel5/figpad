@@ -321,6 +321,8 @@ void on_help_about(void)
 		? translator_credits : NULL;
 
 	const gchar *artists[] = {
+		"Jakub Steiner",
+		"gnoman",
 		"Lapo Calamandrei <calamandrei@gmail.com>",
 		"Jack Gandy <scionicspectre@gmail.com>",
 		NULL
@@ -333,6 +335,6 @@ void on_help_about(void)
 		"authors", authors,
 		"artists", artists,
 		"translator-credits", translator_credits,
-		"logo-icon-name", PACKAGE,
+		"logo-icon-name", APP_ID,
 		NULL);
 }

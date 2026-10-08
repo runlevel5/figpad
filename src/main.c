@@ -203,7 +203,7 @@ static void on_activate(GtkApplication *app, gpointer user_data)
 	pub->mw = create_main_window(app);
 
 	/* set icon for the window — GTK4 removed gtk_window_set_default_icon_name() */
-	gtk_window_set_icon_name(GTK_WINDOW(pub->mw->window), PACKAGE);
+	gtk_window_set_icon_name(GTK_WINDOW(pub->mw->window), APP_ID);
 
 	conf = g_malloc(sizeof(Conf));
 	conf->width       = DEFAULT_WINDOW_WIDTH;
@@ -290,7 +290,7 @@ gint main(gint argc, gchar **argv)
 	parse_args(argc, argv, pub->fi);
 
 	GtkApplication *app = gtk_application_new(
-		"id.tle.figpad", G_APPLICATION_NON_UNIQUE);
+		APP_ID, G_APPLICATION_NON_UNIQUE);
 	g_set_application_name(PACKAGE_NAME);
 
 	g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
