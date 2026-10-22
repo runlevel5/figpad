@@ -31,7 +31,16 @@ Features
 Installation
 ============
 
-figpad requires:
+On Fedora, figpad is packaged in the
+[tle/power](https://copr.fedorainfracloud.org/coprs/tle/power/) COPR
+repository:
+
+```sh
+$ sudo dnf copr enable tle/power
+$ sudo dnf install figpad
+```
+
+To build from source, figpad requires:
 
 * GTK4 (>= 4.16.0)
 
