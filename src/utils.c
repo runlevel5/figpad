@@ -32,7 +32,7 @@
 gchar *gedit_utils_get_stdin (void)
 {
 	GString * file_contents;
-	gchar *tmp_buf = NULL;
+	g_autofree gchar *tmp_buf = NULL;
 	guint buffer_length;
 	fd_set rfds;
 	struct timeval tv;
@@ -60,7 +60,6 @@ gchar *gedit_utils_get_stdin (void)
 
 		if (ferror (stdin) != 0)
 		{
-			g_free (tmp_buf);
 			g_string_free (file_contents, TRUE);
 			return NULL;
 		}
