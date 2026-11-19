@@ -94,7 +94,7 @@ static void undo_create_undo_info(GtkTextBuffer *buffer, gchar command, gint sta
 {
 	GtkTextIter start_iter, end_iter;
 	gboolean seq_flag = FALSE;
-	gchar *str;
+	g_autofree gchar *str = NULL;
 	gint keyval = get_current_keyval();
 
 	gtk_text_buffer_get_iter_at_offset(buffer, &start_iter, start);
