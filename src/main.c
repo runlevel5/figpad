@@ -72,9 +72,9 @@ static void load_config_file(Conf *conf)
 void save_config_file(void)
 {
 	FILE *fp;
-	gchar *path;
+	g_autofree gchar *path = NULL;
 	gint width, height, tabwidth;
-	gchar *fontname;
+	g_autofree gchar *fontname = NULL;
 	gboolean wordwrap, linenumbers, autoindent;
 
 	/* GTK4 removed gtk_window_get_size(); use default size as proxy */
@@ -105,7 +105,6 @@ void save_config_file(void)
 		g_print("%s: can't save config file - %s\n", PACKAGE, path);
 		return;
 	}
-	g_free(path);
 
 	fprintf(fp, "%s\n", PACKAGE_VERSION);
 	fprintf(fp, "%d\n", width);
@@ -116,8 +115,6 @@ void save_config_file(void)
 	fprintf(fp, "%d\n", autoindent);
 	fprintf(fp, "%d\n", tabwidth);
 	fclose(fp);
-
-	g_free(fontname);
 }
 
 gint jump_linenum = 0;
