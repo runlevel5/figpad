@@ -29,6 +29,7 @@ static GtkWidget *gutter_widget = NULL;
 static GtkTextView *gutter_text_view = NULL;
 #define	margin 5
 #define	submargin 2
+#define	LINE_NUMBER_ALPHA 0.5
 
 static gint calculate_min_number_window_width(GtkWidget *widget)
 {
@@ -109,18 +110,6 @@ get_lines (GtkTextView  *text_view,
 	*countp = count;
 }
 
-static inline PangoAttribute *
-line_numbers_foreground_attr_new(GtkWidget *widget)
-{
-	GdkRGBA          rgb;
-
-	gtk_widget_get_color(widget, &rgb);
-
-	return pango_attr_foreground_new((guint16)(rgb.red   * 65535),
-									 (guint16)(rgb.green * 65535),
-									 (guint16)(rgb.blue  * 65535));
-}
-
 /*
  * GTK4 gutter draw function.
  *
@@ -145,8 +134,7 @@ line_numbers_draw (GtkDrawingArea *area,
 	GtkTextView *text_view = gutter_text_view;
 	GtkWidget *tv_widget;
 	PangoLayout *layout;
-	PangoAttrList *alist;
-	PangoAttribute *attr;
+	GdkRGBA color;
 	GArray *numbers;
 	GArray *pixels;
 	gint y1, y2;
@@ -223,14 +211,12 @@ DV({g_print("Painting line numbers %d - %d\n",
 	pango_layout_set_width (layout, layout_width);
 	pango_layout_set_alignment (layout, PANGO_ALIGN_RIGHT);
 
-	alist = pango_attr_list_new();
 /* TODO: should change line number color by conffile */
-	attr = line_numbers_foreground_attr_new(tv_widget);
-	attr->start_index = 0;
-	attr->end_index = G_MAXUINT;
-	pango_attr_list_insert(alist, attr);
-	pango_layout_set_attributes(layout, alist);
-	pango_attr_list_unref(alist);
+	/* GTK4 cannot look up the insensitive colour; dim the text colour
+	 * instead so the numbers are distinguishable from the text */
+	gtk_widget_get_color(tv_widget, &color);
+	color.alpha *= LINE_NUMBER_ALPHA;
+	gdk_cairo_set_source_rgba(cr, &color);
 
 	/* Draw fully internationalized numbers! */
 
