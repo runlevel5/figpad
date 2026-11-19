@@ -8,5 +8,5 @@ StartupWMClass=figpad
 Type=Application
 MimeType=text/plain;
 Categories=GTK;Utility;TextEditor;
-Keywords=text;editor;
+Keywords=text;editor;figpad;notepad;
 InitialPreference=6;
