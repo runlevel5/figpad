@@ -1,3 +1,16 @@
+2026-11-19
+
+  version 0.2.0:
+	* Fix exit on startup when a filename is given
+	* Restore saved settings on startup
+	* Dim line numbers to distinguish them from the text
+	* Fix memory leaks in undo, startup, Open/Save As, printing and
+	  replace all
+	* Add 'figpad' and 'notepad' to desktop keywords
+	* Add more artists attribution
+	* Drop version suffix from Project-Id-Version in po files
+	* Add unit tests and CI workflows
+
 2026-01-01
 
   version 0.1.0:
