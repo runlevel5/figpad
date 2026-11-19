@@ -42,7 +42,7 @@ $ sudo dnf install figpad
 
 To build from source, figpad requires:
 
-* GTK4 (>= 4.16.0)
+* GTK4 (>= 4.18.0)
 
 and for building also:
 
