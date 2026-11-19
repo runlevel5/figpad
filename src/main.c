@@ -41,7 +41,6 @@ static void load_config_file(Conf *conf)
 	FILE *fp;
 	gchar *path;
 	gchar buf[BUFSIZ];
-	gchar **num;
 
 	path = g_build_filename(g_get_user_config_dir(),
 	    PACKAGE, PACKAGE "rc", NULL);
@@ -50,26 +49,23 @@ static void load_config_file(Conf *conf)
 	if (!fp)
 		return;
 
+	/* first line is the version that wrote the file */
 	if (fgets(buf, sizeof(buf), fp)) {
-		num = g_strsplit(buf, "." , 3);
-		if ((atoi(num[1]) >= 8) && (atoi(num[2]) >= 0)) {
-			fgets(buf, sizeof(buf), fp);
-			conf->width = atoi(buf);
-			fgets(buf, sizeof(buf), fp);
-			conf->height = atoi(buf);
-			fgets(buf, sizeof(buf), fp);
-			g_free(conf->fontname);
-			conf->fontname = g_strdup(buf);
-			fgets(buf, sizeof(buf), fp);
-			conf->wordwrap = atoi(buf);
-			fgets(buf, sizeof(buf), fp);
-			conf->linenumbers = atoi(buf);
-			fgets(buf, sizeof(buf), fp);
-			conf->autoindent = atoi(buf);
-			fgets(buf, sizeof(buf), fp);
-			conf->tabwidth = atoi(buf) > 0 ? atoi(buf) : get_current_tab_width();
-		}
-		g_strfreev(num);
+		fgets(buf, sizeof(buf), fp);
+		conf->width = atoi(buf);
+		fgets(buf, sizeof(buf), fp);
+		conf->height = atoi(buf);
+		fgets(buf, sizeof(buf), fp);
+		g_free(conf->fontname);
+		conf->fontname = g_strdup(buf);
+		fgets(buf, sizeof(buf), fp);
+		conf->wordwrap = atoi(buf);
+		fgets(buf, sizeof(buf), fp);
+		conf->linenumbers = atoi(buf);
+		fgets(buf, sizeof(buf), fp);
+		conf->autoindent = atoi(buf);
+		fgets(buf, sizeof(buf), fp);
+		conf->tabwidth = atoi(buf) > 0 ? atoi(buf) : get_current_tab_width();
 	}
 	fclose(fp);
 }
