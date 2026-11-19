@@ -295,7 +295,9 @@ gint main(gint argc, gchar **argv)
 
 	g_signal_connect(app, "activate", G_CALLBACK(on_activate), NULL);
 
-	status = g_application_run(G_APPLICATION(app), argc, argv);
+	/* arguments are already handled by parse_args(); passing the filename
+	 * on to GApplication makes it bail out with "can not open files" */
+	status = g_application_run(G_APPLICATION(app), 0, NULL);
 
 	g_object_unref(app);
 
