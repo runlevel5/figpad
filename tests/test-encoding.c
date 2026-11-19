@@ -30,27 +30,22 @@ static void test_detect_line_ending(void)
 
 static void test_convert_line_ending_to_lf(void)
 {
-	gchar *text;
+	g_autofree gchar *text = g_strdup("one\r\ntwo\rthree\n");
 
-	text = g_strdup("one\r\ntwo\rthree\n");
 	convert_line_ending_to_lf(text);
 	g_assert_cmpstr(text, ==, "one\ntwo\nthree\n");
-	g_free(text);
 }
 
 static void test_convert_line_ending(void)
 {
-	gchar *text;
+	g_autofree gchar *cr = g_strdup("one\ntwo\n");
+	g_autofree gchar *crlf = g_strdup("one\ntwo\n");
 
-	text = g_strdup("one\ntwo\n");
-	convert_line_ending(&text, CR);
-	g_assert_cmpstr(text, ==, "one\rtwo\r");
-	g_free(text);
+	convert_line_ending(&cr, CR);
+	g_assert_cmpstr(cr, ==, "one\rtwo\r");
 
-	text = g_strdup("one\ntwo\n");
-	convert_line_ending(&text, CR+LF);
-	g_assert_cmpstr(text, ==, "one\r\ntwo\r\n");
-	g_free(text);
+	convert_line_ending(&crlf, CR+LF);
+	g_assert_cmpstr(crlf, ==, "one\r\ntwo\r\n");
 }
 
 static void test_detect_charset(void)

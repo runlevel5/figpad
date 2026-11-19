@@ -16,7 +16,7 @@ jobs:
       - name: Install dependencies
         run: dnf install -y gcc meson ninja-build gtk4-devel gettext git
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Configure
         run: meson setup builddir
