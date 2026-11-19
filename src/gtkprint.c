@@ -96,7 +96,8 @@ static void cb_draw_page(GtkPrintOperation *op,
 	PangoLayoutLine *line;
 	gint n_line, i, j = 0;
 
-	PangoLayout *layout_lh, *layout_rh;
+	g_autoptr(PangoLayout) layout_lh = NULL;
+	g_autoptr(PangoLayout) layout_rh = NULL;
 	gchar *page_text;
 	gint layout_width;
 
