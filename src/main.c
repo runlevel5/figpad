@@ -56,8 +56,7 @@ static void load_config_file(Conf *conf)
 		fgets(buf, sizeof(buf), fp);
 		conf->height = atoi(buf);
 		fgets(buf, sizeof(buf), fp);
-		g_free(conf->fontname);
-		conf->fontname = g_strdup(buf);
+		g_set_str(&conf->fontname, buf);
 		fgets(buf, sizeof(buf), fp);
 		conf->wordwrap = atoi(buf);
 		fgets(buf, sizeof(buf), fp);
