@@ -166,7 +166,8 @@ gint file_save_real(GtkWidget *view, FileInfo *fi)
 {
 	FILE *fp;
 	GtkTextIter start, end;
-	gchar *str, *cstr;
+	gchar *str;
+	g_autofree gchar *cstr = NULL;
 	gsize rbytes, wbytes;
 	GError *err = NULL;
 
@@ -217,7 +218,6 @@ gint file_save_real(GtkWidget *view, FileInfo *fi)
 
 	gtk_text_buffer_set_modified(buffer, FALSE);
 	fclose(fp);
-	g_free(cstr);
 
 	return 0;
 }
