@@ -81,8 +81,10 @@ gchar *parse_file_uri(gchar *uri)
 	else {
 		if (g_path_is_absolute(uri))
 			filename = g_strdup(uri);
-		else
-			filename = g_build_filename(g_get_current_dir(), uri, NULL);
+		else {
+			g_autofree gchar *cwd = g_get_current_dir();
+			filename = g_build_filename(cwd, uri, NULL);
+		}
 	}
 
 	return filename;

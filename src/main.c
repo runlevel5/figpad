@@ -129,7 +129,7 @@ static void parse_args(gint argc, gchar **argv, FileInfo *fi)
 	GError *error = NULL;
 
 	GOptionContext *context;
-	gchar *opt_codeset = NULL;
+	g_autofree gchar *opt_codeset = NULL;
 	gint opt_tab_width = 0;
 	gint opt_jump = 0;
 	gboolean opt_version = FALSE;
@@ -158,7 +158,7 @@ static void parse_args(gint argc, gchar **argv, FileInfo *fi)
 		exit(0);
 	}
 	if (opt_codeset) {
-		g_convert("TEST", -1, "UTF-8", opt_codeset, NULL, NULL, &error);
+		g_free(g_convert("TEST", -1, "UTF-8", opt_codeset, NULL, NULL, &error));
 		if (error) {
 			g_error_free(error);
 			error = NULL;
