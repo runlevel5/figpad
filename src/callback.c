@@ -50,6 +50,13 @@ static void set_selection_bound(GtkTextBuffer *buffer, gint start, gint end)
 	gtk_text_buffer_move_mark_by_name(buffer, "selection_bound", &start_iter);
 }
 
+static void free_fileinfo(FileInfo *fi)
+{
+	g_free(fi->filename);
+	g_free(fi->charset);
+	g_free(fi);
+}
+
 void on_file_new(void)
 {
 	gchar *comline;
@@ -85,7 +92,7 @@ void on_file_open(void)
 		g_spawn_command_line_async(comline, NULL);
 		g_free(option);
 		g_free(comline);
-		g_free(fi);
+		free_fileinfo(fi);
 	}
 }
 #else
@@ -97,9 +104,9 @@ void on_file_open(void)
 	fi = get_fileinfo_from_selector(pub->fi, OPEN);
 	if (fi) {
 		if (file_open_real(pub->mw->view, fi))
-			g_free(fi);
+			free_fileinfo(fi);
 		else {
-			g_free(pub->fi);
+			free_fileinfo(pub->fi);
 			pub->fi = fi;
 			undo_clear_all(pub->mw->buffer);
 			force_call_cb_modified_changed(pub->mw->view);
@@ -128,10 +135,10 @@ gint on_file_save_as(void)
 	if (fi == NULL)
 		return -1;
 	if (file_save_real(pub->mw->view, fi)) {
-		g_free(fi);
+		free_fileinfo(fi);
 		return -1;
 	}
-	g_free(pub->fi);
+	free_fileinfo(pub->fi);
 	pub->fi = fi;
 	undo_clear_all(pub->mw->buffer);
 	force_call_cb_modified_changed(pub->mw->view);
