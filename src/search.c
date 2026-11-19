@@ -222,6 +222,7 @@ static gint document_replace_real(GtkWidget *textview)
 	if (replace_all) {
 		gtk_text_buffer_get_iter_at_mark(textbuffer, &iter, mark_init);
 		gtk_text_buffer_place_cursor(textbuffer, &iter);
+		gtk_text_buffer_delete_mark(textbuffer, mark_init);
 		run_dialog_message(GTK_WIDGET(gtk_widget_get_root(textview)), GTK_MESSAGE_INFO,
 			_("%d strings replaced"), num);
 		undo_set_sequency(FALSE);
